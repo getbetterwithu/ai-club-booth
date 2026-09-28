@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎪 AI 제작반 체험 부스</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Jua', 'Noto Sans KR', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    min-height: 100vh;
+    color: #333;
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  header { text-align: center; color: #fff; margin-bottom: 28px; }
+  header h1 { font-size: clamp(2rem, 6vw, 3.2rem); text-shadow: 0 3px 0 rgba(0,0,0,.2); }
+  header p { font-size: clamp(1rem, 3vw, 1.3rem); opacity: .95; margin-top: 8px; }
+  .section-title {
+    color: #fff; font-size: 1.5rem; margin: 32px 8px 14px;
+    text-shadow: 0 2px 0 rgba(0,0,0,.2);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 22px 18px;
+    text-align: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,.18);
+    display: flex; flex-direction: column; gap: 10px;
+    transition: transform .15s;
+  }
+  .card:active { transform: scale(.97); }
+  .card .icon { font-size: 3rem; }
+  .card h2 { font-size: 1.35rem; }
+  .card p { font-size: .95rem; color: #666; flex: 1; }
+  .badge {
+    display: inline-block; font-size: .8rem; font-weight: bold;
+    padding: 4px 12px; border-radius: 999px; margin: 0 auto;
+  }
+  .badge.cam { background: #fff3cd; color: #856404; }
+  .badge.nocam { background: #d4edda; color: #155724; }
+  .play-btn {
+    display: block; text-decoration: none;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff; font-size: 1.25rem; font-weight: bold;
+    padding: 14px; border-radius: 14px; margin-top: 6px;
+  }
+  .play-btn:active { filter: brightness(.92); }
+  .placeholder {
+    background: rgba(255,255,255,.25);
+    border: 3px dashed rgba(255,255,255,.7);
+    border-radius: 20px; padding: 36px 20px;
+    text-align: center; color: #fff; font-size: 1.15rem;
+  }
+  footer { text-align: center; color: rgba(255,255,255,.85); margin-top: 40px; font-size: .9rem; }
+  /*
+   ============================================================
+   📌 학생 작품 추가하는 방법 (1분 컷!)
+   1. 이 폴더(ai-booth/) 안에 새 폴더를 만들고 index.html을 넣기
+      예: student-works/내이름-앱/index.html
+   2. 아래 STUDENT_WORKS 배열에 한 줄 추가하기:
+      { title: '🎲 내 앱 이름', desc: '한 줄 설명', path: 'student-works/내이름-앱/' },
+   3. git add → commit → push 하면 허브에 자동 반영!
+   ============================================================
+  */
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🎪 AI 제작반 체험 부스</h1>
+    <p>직접 만져보고 놀아봐! 전부 AI가 들어간 웹앱이야 ✨</p>
+  </header>
+
+  <div class="section-title">🤖 AI 체험존</div>
+  <div class="grid" id="appGrid"></div>
+
+  <div class="section-title">🎨 학생 작품존</div>
+  <div id="studentZone"></div>
+
+  <footer>AI 제작반 동아리 발표회 부스 · 만든 앱들은 전부 브라우저에서 돌아가!</footer>
+</div>
+
+<script>
+/* 앱 목록: 새 앱을 추가하려면 여기에 한 줄만 넣으면 돼! */
+const APPS = [
+  { title: '🔮 AI 타로 운세',       desc: '이름이랑 고민을 입력하면 AI가 오늘의 운세를 봐줘!', path: 'tarot/',   needCamera: false },
+  { title: '🎨 AI 그림 퀴즈',        desc: 'AI가 그린 그림 10장! 15초 안에 맞혀봐',           path: 'quiz/',    needCamera: false },
+  { title: '📸 AI 물건 맞추기',      desc: '카메라에 물건을 비추면 AI가 이름을 맞혀!',        path: 'object/',  needCamera: true  },
+  { title: '😊 AI 표정 감정 분석기', desc: '얼굴을 비추면 지금 기분을 AI가 읽어줘',           path: 'emotion/', needCamera: true  },
+  { title: '🎮 AI 포즈 따라하기',     desc: '화면 속 포즈를 따라하면 AI가 점수를 매겨줘!',     path: 'pose/',    needCamera: true  },
+];
+
+/* 학생 작품: { title, desc, path } 형식으로 추가! */
+const STUDENT_WORKS = [
+  // 예시: { title: '🎲 숫자 맞히기 게임', desc: '내가 만든 첫 AI 게임!', path: 'student-works/number-game/' },
+];
+
+function cardHTML(app) {
+  const badge = app.needCamera
+    ? '<span class="badge cam">📷 카메라 필요</span>'
+    : '<span class="badge nocam">✅ 카메라 불필요</span>';
+  return `<div class="card">
+    <div class="icon">${app.title.split(' ')[0]}</div>
+    <h2>${app.title}</h2>
+    <p>${app.desc}</p>
+    ${badge}
+    <a class="play-btn" href="${app.path}">▶ 체험하기</a>
+  </div>`;
+}
+
+document.getElementById('appGrid').innerHTML = APPS.map(cardHTML).join('');
+
+const zone = document.getElementById('studentZone');
+zone.innerHTML = STUDENT_WORKS.length
+  ? `<div class="grid">${STUDENT_WORKS.map(cardHTML).join('')}</div>`
+  : `<div class="placeholder">🎨 학생들의 작품이 곧 공개됩니다!<br>조금만 기다려줘~</div>`;
+</script>
+</body>
+</html>
