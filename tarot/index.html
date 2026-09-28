@@ -29,9 +29,9 @@ h1{font-size:clamp(30px,7vw,52px);margin:6px 0 0;letter-spacing:2px;
 .card-panel{background:rgba(20,12,48,.72);border:1px solid rgba(232,169,61,.35);border-radius:20px;
   padding:clamp(18px,4vw,30px);width:min(100%,560px);box-shadow:0 10px 40px rgba(0,0,0,.5);backdrop-filter:blur(6px)}
 label.lbl{display:block;text-align:left;color:#e8d9ae;font-weight:700;margin:14px 0 8px;font-size:15px}
-input[type=text]{width:100%;font-size:18px;padding:14px 16px;border-radius:14px;border:2px solid rgba(232,169,61,.4);
+input[type=text],input[type=email]{width:100%;font-size:18px;padding:14px 16px;border-radius:14px;border:2px solid rgba(232,169,61,.4);
   background:#0d0824;color:#fff;outline:none}
-input[type=text]:focus{border-color:#e8a93d;box-shadow:0 0 0 4px rgba(232,169,61,.2)}
+input[type=text]:focus,input[type=email]:focus{border-color:#e8a93d;box-shadow:0 0 0 4px rgba(232,169,61,.2)}
 .cats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
 .cat{border:2px solid rgba(232,169,61,.35);background:rgba(255,255,255,.04);color:#f5eedd;border-radius:14px;
   padding:14px 8px;font-size:17px;font-weight:700;cursor:pointer;transition:.15s}
@@ -161,6 +161,14 @@ input[type=text]:focus{border-color:#e8a93d;box-shadow:0 0 0 4px rgba(232,169,61
       <button class="bigbtn" id="btn-retry" style="width:auto;padding:14px 34px">다시 뽑기 🔄</button>
       <button class="ghostbtn" id="btn-home">처음으로</button>
     </div>
+    <div class="card-panel" style="width:min(100%,560px)">
+      <label class="lbl">📧 이메일로 결과 받기</label>
+      <div style="display:flex;gap:8px">
+        <input type="email" id="email" placeholder="이메일 주소 입력" autocomplete="off" style="flex:1;min-width:0" />
+        <button class="bigbtn" id="btn-email" style="width:auto;margin-top:0;padding:14px 20px;font-size:16px;white-space:nowrap">보내기</button>
+      </div>
+      <p class="hint" style="text-align:left;margin:8px 0 0">보내기를 누르면 메일 앱이 열려요. 받는 주소가 자동으로 들어가니 전송만 누르세요.</p>
+    </div>
     <p class="hint">결과 화면을 캡처해서 친구에게 공유해봐 📸</p>
   </section>
 
@@ -258,7 +266,7 @@ const POS=["과거","현재","미래"];
 const POS_DESC=["지나온 길 — 지금까지의 흐름","지금 네 상태 — 현재의 기운","앞으로 펼쳐질 일 — 다가올 미래"];
 
 /* ============ 상태 ============ */
-let uname="",cat="",picked=[],revealed=0;
+let uname="",cat="",picked=[],revealed=0,lastMailText="";
 const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');window.scrollTo(0,0);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -348,13 +356,24 @@ function showResult(){
   });
   $('final-msg').innerHTML=html;
   const pick=a=>a[Math.floor(Math.random()*a.length)];
-  $('lucky').innerHTML='<div>🎨 행운의 색 <b>'+pick(LUCKY_COLOR)+'</b></div>'+
-    '<div>🍀 행운의 아이템 <b>'+pick(LUCKY_ITEM)+'</b></div>'+
-    '<div>🔢 행운의 숫자 <b>'+(1+Math.floor(Math.random()*99))+'</b></div>';
+  const lc=pick(LUCKY_COLOR),li=pick(LUCKY_ITEM),ln=1+Math.floor(Math.random()*99);
+  $('lucky').innerHTML='<div>🎨 행운의 색 <b>'+lc+'</b></div>'+
+    '<div>🍀 행운의 아이템 <b>'+li+'</b></div>'+
+    '<div>🔢 행운의 숫자 <b>'+ln+'</b></div>';
+  lastMailText='🔮 '+uname+'의 '+cat+' 타로 운세\n운세 점수: '+avg+'점 ('+tier+')\n\n'+
+    cards.map((c,k)=>'【'+POS[k]+'】 '+c.sym+' '+c.n+' ('+c.kw.join('/')+')\n'+c.msg+'\n👉 '+cat+' 조언: '+c.f[cat]).join('\n\n')+
+    '\n\n🎨 행운의 색: '+lc+'\n🍀 행운의 아이템: '+li+'\n🔢 행운의 숫자: '+ln+'\n\n- AI 제작반 체험 부스 -';
   show('scr-result');sparkleBurst();
 }
 $('btn-retry').addEventListener('click',()=>{setupPick();});
 $('btn-home').addEventListener('click',()=>{show('scr-start');});
+$('btn-email').addEventListener('click',()=>{
+  const em=$('email').value.trim();
+  if(!em||em.indexOf('@')<0){alert('이메일 주소를 제대로 입력해줘!');return;}
+  const subject=encodeURIComponent('🔮 '+uname+'의 타로 운세 결과');
+  const body=encodeURIComponent(lastMailText);
+  location.href='mailto:'+em+'?subject='+subject+'&body='+body;
+});
 </script>
-</body>
+<a href="../" id="hub-back" style="position:fixed;top:12px;left:12px;z-index:9999;background:#16213e;color:#fff;font-weight:800;font-size:15px;padding:10px 16px;border-radius:30px;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)">🏠 허브로</a></body>
 </html>
