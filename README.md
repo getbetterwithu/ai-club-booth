@@ -46,6 +46,14 @@ ai-club-booth/
 
 작품 내리기: `upload/?teacher` → 토큰 붙여넣기 → **전체 작품 목록 불러오기 → 삭제**. (허브 목록과 파일 둘 다 지워짐, git 기록에는 남아서 복구 가능)
 
+## 📸 물건 맞추기의 "진짜 AI에게 물어보기"
+
+- 크롬북 → Google Apps Script 중계(`ai-proxy/`) → SNU AI Chat API. **API 키는 Apps Script 속성에만 있음** (레포·페이지에 없음)
+- 설정 시트(june_wook@snu.ms.kr 소유): "AI 제작반 부스 - AI 설정" 스프레드시트 상단 메뉴 **🤖 AI 설정**
+  - 🔑 API 키 입력 / 🧠 모델 선택 / ✅ 사진으로 연결 테스트 / ⏯️ AI 켜기·끄기
+- 키·모델이 없거나 꺼져 있으면 버튼이 숨고, 무료 박스 인식(MediaPipe)만 동작
+- 코드 수정 후: `cd ai-proxy && clasp push && clasp redeploy <배포ID>` (배포 ID는 `clasp deployments`)
+
 ## 참고
 
 - 카메라 쓰는 앱(object, emotion, pose)은 첫 실행 때 인터넷 필요

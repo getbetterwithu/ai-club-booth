@@ -277,6 +277,13 @@
     .prediction:first-child .bar > span { background: var(--coral); }
     .waiting { color: var(--muted); padding: 10px 0 4px; font-weight: 700; }
     .mission-launch { width: 100%; }
+    .ask-button { width: 100%; }
+    .ask-button:disabled { opacity: .6; cursor: wait; }
+    .ai-answer { margin-top: 14px; min-height: 1.5em; }
+    .ai-answer .ai-name { font-size: clamp(1.5rem, 3.4vw, 2rem); font-weight: 950; letter-spacing: -.03em; color: var(--coral); }
+    .ai-answer .ai-conf { font-size: 1rem; color: var(--muted); font-weight: 800; margin-left: 6px; }
+    .ai-answer .ai-comment { margin: 6px 0 0; font-weight: 750; line-height: 1.5; }
+    .ai-answer .ai-wait { color: var(--muted); font-weight: 800; }
 
     .mission-card { display: none; border-radius: 12px 26px 26px 26px; }
     .mission-card.active { display: block; }
@@ -424,6 +431,15 @@
         </div>
 
         <aside class="side-panel">
+          <section id="aiCard" class="prediction-card" aria-labelledby="aiTitle" hidden>
+            <div class="panel-title">
+              <h2 id="aiTitle">진짜 AI에게 물어보기</h2>
+              <span>대형 AI</span>
+            </div>
+            <button id="askButton" class="primary ask-button" type="button">📸 찰칵! AI야, 이게 뭐야?</button>
+            <div id="aiAnswer" class="ai-answer" aria-live="polite"></div>
+          </section>
+
           <section class="prediction-card" aria-labelledby="predictionTitle">
             <div class="panel-title">
               <h2 id="predictionTitle">AI의 생각</h2>
@@ -514,6 +530,8 @@
       ];
 
       var TASKS = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
+      // 대형 AI 중계 서버 (Google Apps Script). API 키는 그쪽에만 있음
+      var AI_URL = 'https://script.google.com/macros/s/AKfycbzhwe-rbme4UX5QAANWGNVov97USwp2JK1hdHFwBNQWAHTCFvj4H9YDDuLA82R72_SZ/exec';
       var MODELS = 'https://storage.googleapis.com/mediapipe-models/';
 
       var screens = document.querySelectorAll('.screen');
@@ -549,6 +567,12 @@
       var missionMode = false;
       var missionIndex = 0;
       var missionLocked = false;
+      var aiReady = false;
+      var aiBusy = false;
+      var aiCard = document.getElementById('aiCard');
+      var askButton = document.getElementById('askButton');
+      var aiAnswer = document.getElementById('aiAnswer');
+      var snapCanvas = document.createElement('canvas');
 
       function showScreen(id) {
         screens.forEach(function (screen) {
@@ -810,7 +834,11 @@
         var matched = predictions.some(function (prediction) {
           return prediction.probability >= 0.30 && goal.labels.indexOf(prediction.label) !== -1;
         });
-        if (!matched) return;
+        if (matched) missionSuccess();
+      }
+
+      function missionSuccess() {
+        if (!missionMode || missionLocked || missionIndex >= missions.length) return;
         missionLocked = true;
         var stamps = document.querySelectorAll('.stamp');
         stamps[missionIndex].classList.add('done');
@@ -829,6 +857,54 @@
         }, 700);
       }
 
+      // ---------- 대형 AI에게 물어보기 ----------
+      function checkAi() {
+        fetch(AI_URL).then(function (r) { return r.json(); }).then(function (d) {
+          aiReady = !!(d && d.ready);
+          aiCard.hidden = !aiReady;
+        }).catch(function () { aiReady = false; aiCard.hidden = true; });
+      }
+
+      function snapshot() {
+        var vw = camera.videoWidth, vh = camera.videoHeight;
+        if (!vw || !vh) return null;
+        var scale = Math.min(1, 640 / Math.max(vw, vh));
+        snapCanvas.width = Math.round(vw * scale); snapCanvas.height = Math.round(vh * scale);
+        snapCanvas.getContext('2d').drawImage(camera, 0, 0, snapCanvas.width, snapCanvas.height);
+        return snapCanvas.toDataURL('image/jpeg', 0.75);
+      }
+
+      function showAiAnswer(html) { aiAnswer.innerHTML = html; }
+      function escapeHtml(t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+      function askAi() {
+        if (aiBusy) return;
+        var image = snapshot();
+        if (!image) return;
+        aiBusy = true; askButton.disabled = true;
+        askButton.textContent = '🤔 AI가 생각 중...';
+        showAiAnswer('<p class="ai-wait">사진을 보내서 물어보는 중이야. 잠깐만!</p>');
+        successFlash.classList.remove('show');
+        var target = missionMode && missionIndex < missions.length ? missions[missionIndex].labels[0] : '';
+        var timer = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, 25000); });
+        Promise.race([
+          fetch(AI_URL, { method: 'POST', body: JSON.stringify({ image: image, target: target }) }).then(function (r) { return r.json(); }),
+          timer
+        ]).then(function (d) {
+          if (!d || d.error) throw new Error(d && d.error || 'error');
+          showAiAnswer('<div><span class="ai-name">' + escapeHtml(d.emoji + ' ' + d.name) + '</span><span class="ai-conf">' + d.confidence + '%</span></div>' +
+            (d.comment ? '<p class="ai-comment">' + escapeHtml(d.comment) + '</p>' : ''));
+          if (target && d.match) missionSuccess();
+        }).catch(function (e) {
+          var msg = e.message === 'timeout' ? '대답이 너무 늦어. 다시 한번 눌러줘!' :
+            e.message && e.message !== 'error' && e.message !== 'Failed to fetch' ? e.message : '지금은 AI와 연결이 안 돼. 다시 눌러줘!';
+          showAiAnswer('<p class="ai-wait">😵 ' + escapeHtml(msg) + '</p>');
+        }).finally(function () {
+          aiBusy = false; askButton.disabled = false;
+          askButton.textContent = '📸 찰칵! AI야, 이게 뭐야?';
+        });
+      }
+
       function restartMission() {
         celebration.classList.remove('active');
         beginMission();
@@ -842,12 +918,14 @@
         }
       }
 
+      askButton.addEventListener('click', askAi);
       startButton.addEventListener('click', requestCamera);
       retryButton.addEventListener('click', requestCamera);
       missionStartButton.addEventListener('click', beginMission);
       quitMissionButton.addEventListener('click', quitMission);
       celebrationButton.addEventListener('click', restartMission);
       window.addEventListener('pagehide', shutdownCamera);
+      checkAi();
     }());
   </script>
 <a href="../" id="hub-back" style="position:fixed;bottom:12px;left:12px;z-index:9999;background:#16213e;color:#fff;font-weight:800;font-size:15px;padding:10px 16px;border-radius:30px;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)">🏠 허브로</a></body>
