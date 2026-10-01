@@ -261,9 +261,6 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js" crossorigin="anonymous"></script>
   <script>
     (function () {
       "use strict";
@@ -313,6 +310,10 @@
       var countdownTimer = null;
       var phaseStarted = 0;
       var hasBody = false;
+      var armsVisible = false;
+      var POSE_LINKS = [];
+      var TASKS = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1";
+      var POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
       function showScreen(name) {
         Object.keys(screens).forEach(function (key) { screens[key].classList.toggle("active", key === name); });
@@ -367,70 +368,128 @@
         return a;
       }
 
-      function normalizePoints(points) {
-        var valid = points.filter(Boolean);
-        if (valid.length < 10) return null;
-        var minX=1,maxX=0,minY=1,maxY=0;
-        valid.forEach(function(p){ minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minY=Math.min(minY,p.y); maxY=Math.max(maxY,p.y); });
-        var width=Math.max(.12,maxX-minX), height=Math.max(.3,maxY-minY);
-        return points.map(function(p){ return p ? {x:(p.x-minX)/width,y:(p.y-minY)/height} : null; });
+      // 채점 방식: 팔·다리 뼈마디의 '방향'을 목표 그림과 비교
+      // (키나 카메라 거리와 상관없고, 다리가 화면에 안 보여도 팔만으로 채점 가능)
+      // 인덱스는 KEYPOINTS 순서: 0 코, 1 왼어깨, 2 오른어깨, 3 왼팔꿈치, 4 오른팔꿈치, 5 왼손목, 6 오른손목, 7 왼엉덩이, 8 오른엉덩이, 9 왼무릎, 10 오른무릎, 11 왼발목, 12 오른발목
+      var SEGMENTS = [
+        { a:1, b:3, w:1.5, arm:true }, { a:3, b:5, w:1.5, arm:true },
+        { a:2, b:4, w:1.5, arm:true }, { a:4, b:6, w:1.5, arm:true },
+        { a:1, b:2, w:.4 }, { a:1, b:7, w:.5 }, { a:2, b:8, w:.5 },
+        { a:7, b:9, w:1 }, { a:9, b:11, w:1 }, { a:8, b:10, w:1 }, { a:10, b:12, w:1 }
+      ];
+      var SWAP = [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11];   // 좌우 바꾸기
+
+      function angleScore(u, t) {
+        var lu = Math.hypot(u.x, u.y), lt = Math.hypot(t.x, t.y);
+        if (lu < 1e-6 || lt < 1e-6) return null;
+        var cos = Math.max(-1, Math.min(1, (u.x * t.x + u.y * t.y) / (lu * lt)));
+        var deg = Math.acos(cos) * 180 / Math.PI;
+        return Math.max(0, Math.min(1, 1 - (deg - 15) / 50));   // 15도 이내 만점, 65도 넘게 틀어지면 0점
       }
 
       function comparePose(landmarks, target) {
+        var vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+        // 화면처럼 좌우 반전한 사용자 좌표 (픽셀 비율 유지)
         var user = KEYPOINTS.map(function (idx) {
           var p = landmarks[idx];
-          if (!p || (typeof p.visibility === "number" && p.visibility < .45)) return null;
-          return { x: 1-p.x, y:p.y };
+          if (!p || (typeof p.visibility === "number" && p.visibility < .5)) return null;
+          return { x: (1 - p.x) * vw, y: p.y * vh };
         });
-        var u = normalizePoints(user), t = normalizePoints(target);
-        if (!u || !t) return 0;
-        function distance(flip) {
-          var total=0,count=0;
-          for(var i=0;i<u.length;i++){
-            if(!u[i]||!t[i]) continue;
-            var tx=flip ? 1-t[i].x : t[i].x;
-            var dx=u[i].x-tx, dy=u[i].y-t[i].y;
-            var weight=(i===0)? .45 : 1;
-            total += Math.sqrt(dx*dx+dy*dy)*weight; count += weight;
-          }
-          return count ? total/count : 1;
+        var tw = targetCanvas.width, th = targetCanvas.height;
+        function score(mirror) {
+          var total = 0, weight = 0, arms = 0;
+          SEGMENTS.forEach(function (sg) {
+            var ua = user[sg.a], ub = user[sg.b];
+            if (!ua || !ub) return;
+            var ia = mirror ? SWAP[sg.a] : sg.a, ib = mirror ? SWAP[sg.b] : sg.b;
+            var ta = target[ia], tb = target[ib];
+            var tx = (tb.x - ta.x) * tw, ty = (tb.y - ta.y) * th;
+            if (mirror) tx = -tx;
+            var sc = angleScore({ x: ub.x - ua.x, y: ub.y - ua.y }, { x: tx, y: ty });
+            if (sc === null) return;
+            total += sc * sg.w; weight += sg.w; if (sg.arm) arms++;
+          });
+          return { value: weight ? total / weight : 0, arms: arms };
         }
-        var d=Math.min(distance(false),distance(true));
-        return Math.max(0,Math.min(100,Math.round(104-d*245)));
+        var a = score(false), b = score(true);
+        var best = a.value >= b.value ? a : b;
+        armsVisible = best.arms >= 4;
+        if (!armsVisible) return 0;
+        return Math.round(best.value * 100);
       }
 
-      function drawCamera(results) {
-        var w=cameraCanvas.width, h=cameraCanvas.height;
-        cameraCtx.save(); cameraCtx.clearRect(0,0,w,h); cameraCtx.translate(w,0); cameraCtx.scale(-1,1);
-        if(results.image) cameraCtx.drawImage(results.image,0,0,w,h);
-        if(results.poseLandmarks){
-          window.drawConnectors(cameraCtx, results.poseLandmarks, window.POSE_CONNECTIONS, {color:"#bce44c",lineWidth:5});
-          window.drawLandmarks(cameraCtx, results.poseLandmarks, {color:"#ff6948",fillColor:"#fff",lineWidth:2,radius:4});
-        }
+      // 영상은 좌우 반전 + 꽉 채우기(cover)로 그림 (찌그러지지 않게)
+      function drawCamera(landmarks) {
+        var w = cameraCanvas.width, h = cameraCanvas.height;
+        var vw = video.videoWidth, vh = video.videoHeight;
+        cameraCtx.clearRect(0, 0, w, h);
+        if (!vw || !vh) return;
+        var scale = Math.max(w / vw, h / vh), dw = vw * scale, dh = vh * scale, ox = (w - dw) / 2, oy = (h - dh) / 2;
+        cameraCtx.save(); cameraCtx.translate(w, 0); cameraCtx.scale(-1, 1);
+        cameraCtx.drawImage(video, ox, oy, dw, dh);
         cameraCtx.restore();
+        if (!landmarks) return;
+        function X(p) { return w - (ox + p.x * dw); }
+        function Y(p) { return oy + p.y * dh; }
+        function seen(p) { return p && (typeof p.visibility !== "number" || p.visibility > .5); }
+        cameraCtx.lineCap = "round";
+        cameraCtx.strokeStyle = "#bce44c"; cameraCtx.lineWidth = Math.max(5, w / 110);
+        cameraCtx.beginPath();
+        POSE_LINKS.forEach(function (c) {
+          var a = landmarks[c.start], b = landmarks[c.end];
+          if (c.start < 11 || c.end < 11 || !seen(a) || !seen(b)) return;   // 얼굴 잔점은 빼고 몸만
+          cameraCtx.moveTo(X(a), Y(a)); cameraCtx.lineTo(X(b), Y(b));
+        });
+        cameraCtx.stroke();
+        landmarks.forEach(function (p, i) {
+          if ((i > 0 && i < 11) || !seen(p)) return;
+          cameraCtx.beginPath(); cameraCtx.arc(X(p), Y(p), Math.max(5, w / 140), 0, Math.PI * 2);
+          cameraCtx.fillStyle = "#fff"; cameraCtx.fill();
+          cameraCtx.lineWidth = 3; cameraCtx.strokeStyle = "#ff6948"; cameraCtx.stroke();
+        });
       }
 
-      function onResults(results) {
-        drawCamera(results);
-        lastLandmarks = results.poseLandmarks || null;
+      function onResults(landmarks) {
+        drawCamera(landmarks);
+        lastLandmarks = landmarks || null;
         hasBody = !!lastLandmarks;
         if(gameActive && roundPhase === "score" && lastLandmarks){
           var raw=comparePose(lastLandmarks, poses[order[roundIndex]] .p);
           detectedScore = Math.round(detectedScore*.72 + raw*.28);
           roundBest = Math.max(roundBest, detectedScore);
           matchMeter.textContent="일치도 "+detectedScore+"%";
-          feedback.textContent = detectedScore >= 88 ? "완벽해! 그대로 유지!" : detectedScore >= 70 ? "좋아, 조금만 더!" : "목표 그림을 보고 관절을 맞춰봐";
+          feedback.textContent = !armsVisible ? "두 팔이 화면에 다 보이게 조금 뒤로 가줘" : detectedScore >= 88 ? "완벽해! 그대로 유지!" : detectedScore >= 70 ? "좋아, 조금만 더!" : "목표 그림을 보고 팔 방향을 맞춰봐";
         } else if(!hasBody){
           feedback.textContent="몸 전체가 화면에 보이게 서줘";
         }
       }
 
-      function setupPoseEngine() {
-        if (!window.Pose || !window.Camera) throw new Error("AI 라이브러리 로딩 실패");
-        poseEngine = new window.Pose({locateFile:function(file){ return "https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/"+file; }});
-        poseEngine.setOptions({modelComplexity:0,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.55,minTrackingConfidence:.5});
-        poseEngine.onResults(onResults);
-        camera = new window.Camera(video,{onFrame:async function(){ if(poseEngine) await poseEngine.send({image:video}); },width:640,height:480});
+      async function setupPoseEngine() {
+        var lib = await import(TASKS + "/vision_bundle.mjs");
+        var fileset = await lib.FilesetResolver.forVisionTasks(TASKS + "/wasm");
+        poseEngine = await lib.PoseLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: POSE_MODEL, delegate: "CPU" },
+          runningMode: "VIDEO", numPoses: 1,
+          minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5, minTrackingConfidence: .5
+        });
+        POSE_LINKS = lib.PoseLandmarker.POSE_CONNECTIONS;
+        var lastTime = -1;
+        camera = {
+          start: async function () {
+            if (video.srcObject) return;
+            video.srcObject = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } });
+            await video.play();
+            (function loop() {
+              requestAnimationFrame(loop);
+              if (video.readyState < 2 || video.currentTime === lastTime) return;
+              lastTime = video.currentTime;
+              try {
+                var res = poseEngine.detectForVideo(video, performance.now());
+                onResults(res.landmarks && res.landmarks[0]);
+              } catch (e) {}
+            })();
+          }
+        };
       }
 
       async function openCameraAndStart() {
@@ -438,7 +497,7 @@
         document.getElementById("allowCamera").disabled=true;
         document.getElementById("allowCamera").textContent="카메라 여는 중…";
         try {
-          if(!poseEngine) setupPoseEngine();
+          if(!poseEngine) { document.getElementById("allowCamera").textContent="AI 불러오는 중…"; await setupPoseEngine(); }
           await camera.start();
           dialog.classList.remove("open");
           startGame();
@@ -558,5 +617,5 @@
       createPoseGrid(); paintTarget(poses[0]); renderRankings();
     })();
   </script>
-<a href="../" id="hub-back" style="position:fixed;top:12px;left:12px;z-index:9999;background:#16213e;color:#fff;font-weight:800;font-size:15px;padding:10px 16px;border-radius:30px;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)">🏠 허브로</a></body>
+<a href="../" id="hub-back" style="position:fixed;bottom:12px;left:12px;z-index:9999;background:#16213e;color:#fff;font-weight:800;font-size:15px;padding:10px 16px;border-radius:30px;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)">🏠 허브로</a></body>
 </html>
