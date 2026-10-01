@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Pixel RPG Explorer - Character Select Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #090a10;
+            color: #f0f0f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .game-container {
+            background: #121420;
+            border: 3px solid #3b4261;
+            border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.9), 0 0 25px rgba(122, 162, 247, 0.2);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 1020px;
+            width: 100%;
+        }
+
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 12px 20px;
+            background: #1a1c2e;
+            border-radius: 10px;
+            border: 2px solid #2ac3de;
+            box-shadow: inset 0 0 12px rgba(42, 195, 222, 0.15);
+        }
+
+        .stats-group {
+            display: flex;
+            gap: 15px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .bar-outer {
+            width: 110px;
+            height: 16px;
+            background: #231825;
+            border: 2px solid #555;
+            border-radius: 8px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .hp-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ff79c6);
+            width: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .mp-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, #2080f0, #7dcfff);
+            width: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .exp-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, #e0af68, #f7ba53);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .weapon-badge {
+            background: #24283b;
+            border: 1px solid #7aa2f7;
+            padding: 4px 10px;
+            border-radius: 6px;
+            color: #7dcfff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            border: 4px solid #7aa2f7;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 25px rgba(122, 162, 247, 0.3);
+        }
+
+        #game-canvas {
+            background-color: #0f111a;
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        .shake {
+            animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(3px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-5px, 0, 0); }
+            40%, 60% { transform: translate3d(5px, 0, 0); }
+        }
+
+        .controls-hint {
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            color: #a9b1d6;
+            font-size: 13px;
+            background: #1f2335;
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: 1px solid #3b4261;
+        }
+
+        .log-box {
+            margin-top: 15px;
+            width: 100%;
+            height: 110px;
+            background: #0b0c10;
+            border: 2px solid #24283b;
+            border-radius: 8px;
+            padding: 12px;
+            overflow-y: auto;
+            font-size: 13px;
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 1.6;
+        }
+
+        .log-box p { margin-bottom: 4px; }
+        .log-combat { color: #f7768e; }
+        .log-defend { color: #7aa2f7; }
+        .log-heal { color: #9ece6a; }
+        .log-gold { color: #e0af68; }
+        .log-weapon { color: #bb9af7; font-weight: bold; }
+        .log-skill { color: #ff9e64; font-weight: bold; }
+        .log-info { color: #7dcfff; }
+
+        .on-screen-controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 44px);
+            grid-gap: 5px;
+        }
+
+        .btn-ctrl {
+            width: 44px;
+            height: 44px;
+            background: #2ac3de;
+            color: #15161e;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #107283;
+            transition: transform 0.1s;
+        }
+
+        .btn-ctrl:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #107283;
+        }
+
+        .action-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-action {
+            height: 50px;
+            padding: 0 18px;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .btn-attack { background: #f7768e; box-shadow: 0 4px 0 #9d2b42; }
+        .btn-skill { background: #ff9e64; box-shadow: 0 4px 0 #b3561b; }
+        .btn-defend { background: #7aa2f7; box-shadow: 0 4px 0 #3d59a1; }
+        .btn-action:active { transform: translateY(3px); }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal {
+            background: #1a1b26;
+            border: 3px solid #7aa2f7;
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 35px rgba(122, 162, 247, 0.4);
+        }
+
+        .modal h2 { color: #7aa2f7; margin-bottom: 20px; font-size: 26px; }
+
+        .class-select-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .class-card {
+            background: #24283b;
+            border: 2px solid #3b4261;
+            border-radius: 12px;
+            padding: 15px 10px;
+            flex: 1;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .class-card:hover, .class-card.selected {
+            border-color: #2ac3de;
+            background: #1f2335;
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(42, 195, 222, 0.3);
+        }
+
+        .class-icon { font-size: 36px; margin-bottom: 8px; }
+        .class-name { font-weight: bold; color: #7dcfff; margin-bottom: 6px; }
+        .class-desc { font-size: 11px; color: #a9b1d6; line-height: 1.4; }
+
+        .btn-start {
+            padding: 12px 35px;
+            background: #2ac3de;
+            border: none;
+            color: #15161e;
+            font-weight: bold;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #107283;
+        }
+
+        .btn-start:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #107283;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="header">
+        <div class="stats-group">
+            <div class="stat-item">
+                <span>❤️</span>
+                <div class="bar-outer"><div id="hp-bar" class="hp-bar-inner"></div></div>
+                <span id="hp-text">100/100</span>
+            </div>
+            <div class="stat-item">
+                <span>💧</span>
+                <div class="bar-outer"><div id="mp-bar" class="mp-bar-inner"></div></div>
+                <span id="mp-text">50/50</span>
+            </div>
+            <div class="stat-item">
+                <span>⭐ Lv.<span id="level-text">1</span></span>
+                <div class="bar-outer"><div id="exp-bar" class="exp-bar-inner"></div></div>
+            </div>
+        </div>
+        <div class="stats-group">
+            <div class="weapon-badge">
+                <span id="weapon-icon">🪵</span>
+                <span id="weapon-name">나무 단검</span>
+            </div>
+            <div class="stat-item">🗡 <span id="atk-text" style="color:#f7768e;">22</span></div>
+            <div class="stat-item">💰 <span id="gold-text" style="color:#e0af68;">0</span></div>
+            <div class="stat-item">🚩 <span id="floor-text" style="color:#bb9af7;">1</span>층</div>
+        </div>
+    </div>
+
+    <div id="canvas-wrapper" class="canvas-wrapper">
+        <canvas id="game-canvas" width="960" height="560"></canvas>
+    </div>
+
+    <div class="controls-hint">
+        <span>🎮 이동: W,A,S,D / 방향키 | ⚔️ 공격: E | 🔥 파이어볼: Q | 🛡️ 방어: Space</span>
+        <span>🎭 원하시는 캐릭터 직업을 선택해 던전을 탐험하세요!</span>
+    </div>
+
+    <div class="on-screen-controls">
+        <div class="dpad">
+            <div></div>
+            <button class="btn-ctrl" onclick="movePlayer(0, -1)">▲</button>
+            <div></div>
+            <button class="btn-ctrl" onclick="movePlayer(-1, 0)">◄</button>
+            <button class="btn-ctrl" onclick="movePlayer(0, 1)">▼</button>
+            <button class="btn-ctrl" onclick="movePlayer(1, 0)">►</button>
+        </div>
+        <div class="action-group">
+            <button class="btn-action btn-attack" onclick="attackAction()">⚔️️ 공격 (E)</button>
+            <button class="btn-action btn-skill" onclick="skillAction()">🔥 스킬 (Q)</button>
+            <button class="btn-action btn-defend" onclick="defendAction()">🛡️ 방어 (Space)</button>
+        </div>
+    </div>
+
+    <div id="log-box" class="log-box">
+        <p class="log-info">🎮 캐릭터를 선택하고 던전 탐험을 시작하세요!</p>
+    </div>
+</div>
+
+<!-- Character Select Modal -->
+<div id="select-modal" class="modal-overlay">
+    <div class="modal">
+        <h2>🎭 캐릭터 선택</h2>
+        <div class="class-select-container">
+            <div class="class-card selected" onclick="selectClass('warrior', this)">
+                <div class="class-icon">⚔️</div>
+                <div class="class-name">전사</div>
+                <div class="class-desc">체력: 140<br>마력: 30<br>공격력: 18<br>특징: 높은 생존력</div>
+            </div>
+            <div class="class-card" onclick="selectClass('mage', this)">
+                <div class="class-icon">🧙</div>
+                <div class="class-name">마법사</div>
+                <div class="class-desc">체력: 80<br>마력: 100<br>공격력: 10<br>특징: 풍부한 MP 스킬</div>
+            </div>
+            <div class="class-card" onclick="selectClass('rogue', this)">
+                <div class="class-icon">🗡️</div>
+                <div class="class-name">도적</div>
+                <div class="class-desc">체력: 90<br>마력: 50<br>공격력: 14<br>특징: 2단계 무기 시작</div>
+            </div>
+        </div>
+        <button class="btn-start" onclick="startGameWithClass()">게임 시작</button>
+    </div>
+</div>
+
+<!-- Game Over Modal -->
+<div id="gameover-modal" class="modal-overlay hidden">
+    <div class="modal">
+        <h2 style="color:#f7768e;">💀 GAME OVER</h2>
+        <p>던전 깊은 곳에서 쓰러졌습니다...</p>
+        <p style="margin-top: 10px;">도달 층수: <span id="final-floor">1</span>층 | 최종 레벨: <span id="final-level">1</span></p>
+        <button class="btn-start" onclick="showClassSelect()">다시 도전하기</button>
+    </div>
+</div>
+
+<script>
+    // --- Audio Sound Synthesizer ---
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new AudioCtx();
+    }
+
+    function playSound(freq, type, duration) {
+        try {
+            initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+    }
+
+    const playHitSound = () => playSound(150, 'sawtooth', 0.15);
+    const playPickupSound = () => playSound(600, 'sine', 0.1);
+    const playLevelUpSound = () => { playSound(400, 'triangle', 0.1); setTimeout(() => playSound(800, 'triangle', 0.2), 100); };
+    const playSkillSound = () => playSound(220, 'square', 0.25);
+
+    // --- Game Logic ---
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    const GRID_SIZE = 40;
+    const COLS = canvas.width / GRID_SIZE; 
+    const ROWS = canvas.height / GRID_SIZE; 
+
+    const WEAPONS = [
+        { name: '나무 단검', atk: 10, icon: '🪵' },
+        { name: '쇠 단검', atk: 18, icon: '🗡️' },
+        { name: '철제 롱소드', atk: 28, icon: '⚔️' },
+        { name: '대형 배틀액스', atk: 42, icon: '🪓' },
+        { name: '마법 봉', atk: 60, icon: '🪄' },
+        { name: '엘프의 장궁', atk: 80, icon: '🏹' },
+        { name: '전설의 성검', atk: 105, icon: '🔱' },
+        { name: '데몬 낫', atk: 135, icon: '🔱' },
+        { name: '뇌신 망치', atk: 175, icon: '⚡' },
+        { name: '은하수의 지팡이', atk: 225, icon: '🌌' }
+    ];
+
+    let selectedClassKey = 'warrior';
+
+    let player = {
+        x: 1, y: 1,
+        icon: '⚔️',
+        className: '전사',
+        hp: 140, maxHp: 140,
+        mp: 30, maxMp: 30,
+        level: 1, exp: 0, maxExp: 50,
+        baseAtk: 18,
+        weapon: WEAPONS[0],
+        gold: 0, floor: 1,
+        isDefending: false
+    };
+
+    let monsters = [];
+    let weaponsOnMap = [];
+    let floatingTexts = [];
+    let grid = [];
+
+    function selectClass(key, cardEl) {
+        selectedClassKey = key;
+        document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
+        cardEl.classList.add('selected');
+    }
+
+    function startGameWithClass() {
+        if (selectedClassKey === 'warrior') {
+            player = {
+                x: 1, y: 1, icon: '⚔️', className: '전사',
+                hp: 140, maxHp: 140, mp: 30, maxMp: 30,
+                level: 1, exp: 0, maxExp: 50, baseAtk: 18,
+                weapon: WEAPONS[0], gold: 0, floor: 1, isDefending: false
+            };
+        } else if (selectedClassKey === 'mage') {
+            player = {
+                x: 1, y: 1, icon: '🧙', className: '마법사',
+                hp: 80, maxHp: 80, mp: 100, maxMp: 100,
+                level: 1, exp: 0, maxExp: 50, baseAtk: 10,
+                weapon: WEAPONS[0], gold: 0, floor: 1, isDefending: false
+            };
+        } else if (selectedClassKey === 'rogue') {
+            player = {
+                x: 1, y: 1, icon: '🗡️', className: '도적',
+                hp: 90, maxHp: 90, mp: 50, maxMp: 50,
+                level: 1, exp: 0, maxExp: 50, baseAtk: 14,
+                weapon: WEAPONS[1], gold: 0, floor: 1, isDefending: false
+            };
+        }
+
+        document.getElementById('select-modal').classList.add('hidden');
+        document.getElementById('gameover-modal').classList.add('hidden');
+        document.getElementById('log-box').innerHTML = `<p class="log-info">✨ [${player.className}] 클래스로 던전 탐험을 시작합니다!</p>`;
+        
+        initMap();
+        updateUI();
+        draw();
+    }
+
+    function showClassSelect() {
+        document.getElementById('gameover-modal').classList.add('hidden');
+        document.getElementById('select-modal').classList.remove('hidden');
+    }
+
+    function createMonsterForFloor(c, r, floor) {
+        let isBoss = Math.random() < Math.min(0.3, 0.1 + floor * 0.03);
+        let icon = '👾';
+        let name = '슬라임';
+        
+        let hpMultiplier = Math.pow(1.35, floor - 1);
+        let atkMultiplier = Math.pow(1.25, floor - 1);
+
+        let baseHp = 30 * hpMultiplier;
+        let baseAtk = 8 * atkMultiplier;
+        let expReward = Math.floor(20 * hpMultiplier);
+
+        let randType = Math.random();
+        if (floor >= 5 && randType < 0.3) {
+            icon = '🐲';
+            name = '드래곤';
+            baseHp *= 2.2;
+            baseAtk *= 1.6;
+            expReward *= 2.5;
+        } else if (floor >= 3 && randType < 0.5) {
+            icon = '💀';
+            name = '해골 기사';
+            baseHp *= 1.5;
+            baseAtk *= 1.3;
+            expReward *= 1.6;
+        }
+
+        if (isBoss) {
+            icon = '👹';
+            name = `대장 ${name}`;
+            baseHp *= 2.5;
+            baseAtk *= 1.5;
+            expReward *= 3;
+        }
+
+        return {
+            x: c, y: r,
+            name: name,
+            icon: icon,
+            hp: Math.floor(baseHp),
+            maxHp: Math.floor(baseHp),
+            attack: Math.floor(baseAtk),
+            exp: Math.floor(expReward),
+            isBoss: isBoss
+        };
+    }
+
+    function initMap() {
+        grid = [];
+        monsters = [];
+        weaponsOnMap = [];
+        player.isDefending = false;
+
+        for (let r = 0; r < ROWS; r++) {
+            let row = [];
+            for (let c = 0; c < COLS; c++) {
+                if (r === 0 || r === ROWS - 1 || c === 0 || c === COLS - 1) {
+                    row.push(1);
+                } else {
+                    let rand = Math.random();
+                    if (rand < 0.12) row.push(1);
+                    else if (rand < 0.22) {
+                        row.push(0);
+                        if (c > 3 || r > 3) {
+                            monsters.push(createMonsterForFloor(c, r, player.floor));
+                        }
+                    } 
+                    else if (rand < 0.24) row.push(3);
+                    else if (rand < 0.26) row.push(7);
+                    else if (rand < 0.28) row.push(4);
+                    else if (rand < 0.30) {
+                        row.push(6);
+                        let maxTier = Math.min(WEAPONS.length - 1, player.floor);
+                        let minTier = Math.max(0, maxTier - 2);
+                        let weaponIndex = Math.floor(Math.random() * (maxTier - minTier + 1)) + minTier;
+                        weaponsOnMap.push({ x: c, y: r, item: WEAPONS[weaponIndex] });
+                    }
+                    else row.push(0);
+                }
+            }
+            grid.push(row);
+        }
+
+        player.x = 1; player.y = 1;
+        grid[1][1] = 0; grid[1][2] = 0; grid[2][1] = 0;
+        grid[ROWS - 2][COLS - 2] = 5;
+    }
+
+    function getTotalAttack() {
+        return player.baseAtk + player.weapon.atk;
+    }
+
+    function addFloatingText(text, x, y, color) {
+        floatingTexts.push({
+            text: text,
+            x: x * GRID_SIZE + GRID_SIZE / 2,
+            y: y * GRID_SIZE,
+            color: color,
+            alpha: 1.0
+        });
+    }
+
+    function triggerScreenShake() {
+        const wrapper = document.getElementById('canvas-wrapper');
+        wrapper.classList.add('shake');
+        setTimeout(() => wrapper.classList.remove('shake'), 200);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                let cell = grid[r][c];
+                let x = c * GRID_SIZE;
+                let y = r * GRID_SIZE;
+
+                ctx.fillStyle = (r + c) % 2 === 0 ? '#13141f' : '#181a28';
+                ctx.fillRect(x, y, GRID_SIZE, GRID_SIZE);
+                ctx.strokeStyle = '#23263a';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, GRID_SIZE, GRID_SIZE);
+
+                if (cell === 1) {
+                    ctx.fillStyle = '#2b3045';
+                    ctx.fillRect(x + 1, y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+                    ctx.fillStyle = '#414868';
+                    ctx.fillRect(x + 3, y + 3, GRID_SIZE - 6, GRID_SIZE - 6);
+                } else if (cell === 3) drawEmoji('🧪', x, y);
+                else if (cell === 7) drawEmoji('🔷', x, y);
+                else if (cell === 4) drawEmoji('🪙', x, y);
+                else if (cell === 5) {
+                    ctx.fillStyle = 'rgba(187, 154, 247, 0.25)';
+                    ctx.fillRect(x, y, GRID_SIZE, GRID_SIZE);
+                    drawEmoji('🚪', x, y);
+                } else if (cell === 6) {
+                    let wObj = weaponsOnMap.find(w => w.x === c && w.y === r);
+                    if (wObj) {
+                        ctx.fillStyle = 'rgba(224, 175, 104, 0.2)';
+                        ctx.fillRect(x + 2, y + 2, GRID_SIZE - 4, GRID_SIZE - 4);
+                        drawEmoji(wObj.item.icon, x, y);
+                    }
+                }
+            }
+        }
+
+        // Monsters
+        monsters.forEach(m => {
+            let mx = m.x * GRID_SIZE;
+            let my = m.y * GRID_SIZE;
+            drawEmoji(m.icon, mx, my);
+
+            let hpRatio = m.hp / m.maxHp;
+            ctx.fillStyle = '#441111';
+            ctx.fillRect(mx + 4, my + 2, GRID_SIZE - 8, 4);
+            ctx.fillStyle = m.isBoss ? '#ff0055' : '#f7768e';
+            ctx.fillRect(mx + 4, my + 2, (GRID_SIZE - 8) * hpRatio, 4);
+        });
+
+        // Player
+        let px = player.x * GRID_SIZE;
+        let py = player.y * GRID_SIZE;
+
+        if (player.isDefending) {
+            ctx.fillStyle = 'rgba(122, 162, 247, 0.35)';
+            ctx.beginPath();
+            ctx.arc(px + GRID_SIZE / 2, py + GRID_SIZE / 2, GRID_SIZE / 2 + 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#7aa2f7';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        drawEmoji(player.icon, px, py);
+
+        // Floating Text FX
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            let ft = floatingTexts[i];
+            ctx.save();
+            ctx.globalAlpha = ft.alpha;
+            ctx.font = 'bold 16px sans-serif';
+            ctx.fillStyle = ft.color;
+            ctx.textAlign = 'center';
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+
+            ft.y -= 0.8;
+            ft.alpha -= 0.02;
+            if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+        }
+    }
+
+    function drawEmoji(emoji, x, y) {
+        ctx.font = '26px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji, x + GRID_SIZE / 2, y + GRID_SIZE / 2 + 2);
+    }
+
+    function updateMonsters() {
+        if (player.hp <= 0) return;
+
+        monsters.forEach(m => {
+            let dx = player.x - m.x;
+            let dy = player.y - m.y;
+            let dist = Math.abs(dx) + Math.abs(dy);
+
+            if (dist === 1) {
+                let rawDamage = Math.floor(m.attack * (0.85 + Math.random() * 0.3));
+                let mDamage = player.isDefending ? Math.max(1, Math.floor(rawDamage * 0.25)) : rawDamage;
+
+                if (player.isDefending) {
+                    addLog(`🛡️ 방어 성공! 데미지 감소 (${rawDamage} ➡️ ${mDamage})`, 'log-defend');
+                } else {
+                    addLog(`💥 [${m.name}]에게 ${mDamage} 피해를 입었습니다!`, 'log-combat');
+                    triggerScreenShake();
+                }
+
+                playHitSound();
+                addFloatingText(`-${mDamage}`, player.x, player.y, '#f7768e');
+                player.hp -= mDamage;
+                if (player.hp <= 0) {
+                    player.hp = 0;
+                    showGameOver();
+                }
+            } else if (dist <= 7) {
+                let stepX = 0, stepY = 0;
+                if (Math.abs(dx) > Math.abs(dy)) stepX = dx > 0 ? 1 : -1;
+                else stepY = dy > 0 ? 1 : -1;
+
+                let newX = m.x + stepX;
+                let newY = m.y + stepY;
+
+                if (isCellPassableForMonster(newX, newY)) {
+                    m.x = newX; m.y = newY;
+                }
+            }
+        });
+
+        updateUI();
+        draw();
+    }
+
+    function isCellPassableForMonster(x, y) {
+        if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false;
+        if (grid[y][x] === 1 || grid[y][x] === 5) return false;
+        if (x === player.x && y === player.y) return false;
+        return !monsters.some(other => other.x === x && other.y === y);
+    }
+
+    function movePlayer(dx, dy) {
+        if (player.hp <= 0) return;
+
+        player.isDefending = false;
+        let newX = player.x + dx;
+        let newY = player.y + dy;
+
+        if (newX < 0 || newX >= COLS || newY < 0 || newY >= ROWS) return;
+        if (grid[newY][newX] === 1) return;
+
+        let targetMonster = monsters.find(m => m.x === newX && m.y === newY);
+        if (targetMonster) {
+            attackMonster(targetMonster);
+            return;
+        }
+
+        player.x = newX; player.y = newY;
+
+        let target = grid[newY][newX];
+        if (target === 3) {
+            let heal = 40;
+            player.hp = Math.min(player.maxHp, player.hp + heal);
+            addLog(`🧪 HP 포션을 사용하여 ${heal} 회복!`, 'log-heal');
+            addFloatingText(`+${heal} HP`, player.x, player.y, '#9ece6a');
+            playPickupSound();
+            grid[newY][newX] = 0;
+        } else if (target === 7) {
+            let mpHeal = 30;
+            player.mp = Math.min(player.maxMp, player.mp + mpHeal);
+            addLog(`🔷 MP 포션을 사용하여 ${mpHeal} 회복!`, 'log-heal');
+            addFloatingText(`+${mpHeal} MP`, player.x, player.y, '#7dcfff');
+            playPickupSound();
+            grid[newY][newX] = 0;
+        } else if (target === 4) {
+            let goldEarned = Math.floor((Math.random() * 30 + 20) * (1 + player.floor * 0.2));
+            player.gold += goldEarned;
+            addLog(`🪙 보물상자를 열어 ${goldEarned} Gold 획득!`, 'log-gold');
+            playPickupSound();
+            grid[newY][newX] = 0;
+        } else if (target === 6) {
+            let wIdx = weaponsOnMap.findIndex(w => w.x === newX && w.y === newY);
+            if (wIdx !== -1) {
+                let foundWeapon = weaponsOnMap[wIdx].item;
+                if (foundWeapon.atk > player.weapon.atk) {
+                    player.weapon = foundWeapon;
+                    addLog(`⚔ 더 강력한 무기 [${foundWeapon.icon} ${foundWeapon.name}] (공격력 +${foundWeapon.atk}) 장착!`, 'log-weapon');
+                } else {
+                    addLog(`🎒 [${foundWeapon.icon} ${foundWeapon.name}]을(를) 발견했으나 기존 무기가 더 강력합니다.`, 'log-info');
+                }
+                playPickupSound();
+                weaponsOnMap.splice(wIdx, 1);
+                grid[newY][newX] = 0;
+            }
+        } else if (target === 5) {
+            player.floor++;
+            player.hp = player.maxHp;
+            player.mp = player.maxMp;
+            addLog(`🚪 ${player.floor}층으로 진입! (더 강력한 무기와 몬스터가 등장합니다)`, 'log-info');
+            initMap();
+        }
+
+        updateUI();
+        draw();
+    }
+
+    function attackAction() {
+        if (player.hp <= 0) return;
+        player.isDefending = false;
+        let adj = monsters.filter(m => Math.abs(m.x - player.x) + Math.abs(m.y - player.y) === 1);
+        if (adj.length > 0) attackMonster(adj[0]);
+    }
+
+    function skillAction() {
+        if (player.hp <= 0) return;
+        if (player.mp < 20) {
+            addLog(`⚠️ 마나가 부족합니다! (필요 MP: 20)`, 'log-info');
+            return;
+        }
+
+        player.mp -= 20;
+        playSkillSound();
+        addLog(`🔥 [파이어볼] 발사! 광역 폭발 공격!`, 'log-skill');
+
+        monsters.forEach(m => {
+            if (Math.abs(m.x - player.x) <= 2 && Math.abs(m.y - player.y) <= 2) {
+                let skillDmg = Math.floor(getTotalAttack() * 1.8);
+                m.hp -= skillDmg;
+                addFloatingText(`-${skillDmg}`, m.x, m.y, '#ff9e64');
+            }
+        });
+
+        monsters = monsters.filter(m => {
+            if (m.hp <= 0) {
+                let reward = Math.floor((Math.random() * 15 + 10) * (1 + player.floor * 0.2));
+                player.gold += reward;
+                gainExperience(m.exp);
+                addLog(`🎉 [${m.name}] 처치! (+${reward} Gold, +${m.exp} EXP)`, 'log-gold');
+                return false;
+            }
+            return true;
+        });
+
+        updateUI();
+        draw();
+    }
+
+    function defendAction() {
+        if (player.hp <= 0) return;
+        player.isDefending = true;
+        addLog(`🛡️ 방어 자세! 다음 피해 75% 감소.`, 'log-defend');
+        updateUI();
+        draw();
+    }
+
+    function attackMonster(m) {
+        let pDamage = Math.floor(getTotalAttack() * (0.9 + Math.random() * 0.3));
+        m.hp -= pDamage;
+        playHitSound();
+        addFloatingText(`-${pDamage}`, m.x, m.y, '#ffffff');
+
+        addLog(`⚔️ [${m.name}] 공격! ${pDamage} 피해!`, 'log-combat');
+
+        if (m.hp <= 0) {
+            let reward = Math.floor((Math.random() * 20 + 10) * (1 + player.floor * 0.2));
+            player.gold += reward;
+            gainExperience(m.exp);
+            addLog(`🎉 [${m.name}] 처치! (+${reward} Gold, +${m.exp} EXP)`, 'log-gold');
+
+            monsters = monsters.filter(item => item !== m);
+        }
+
+        updateUI();
+        draw();
+    }
+
+    function gainExperience(amount) {
+        player.exp += amount;
+        if (player.exp >= player.maxExp) {
+            player.level++;
+            player.exp -= player.maxExp;
+            player.maxExp = Math.floor(player.maxExp * 1.4);
+            player.maxHp += 20;
+            player.hp = player.maxHp;
+            player.baseAtk += 5;
+            playLevelUpSound();
+            addLog(`⭐ LEVEL UP! (Lv.${player.level}) 스탯 상승!`, 'log-weapon');
+        }
+    }
+
+    function addLog(msg, typeClass = '') {
+        const logBox = document.getElementById('log-box');
+        const p = document.createElement('p');
+        p.className = typeClass;
+        p.textContent = msg;
+        logBox.appendChild(p);
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function updateUI() {
+        document.getElementById('hp-text').textContent = `${player.hp}/${player.maxHp}`;
+        document.getElementById('hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+        document.getElementById('mp-text').textContent = `${player.mp}/${player.maxMp}`;
+        document.getElementById('mp-bar').style.width = `${(player.mp / player.maxMp) * 100}%`;
+        document.getElementById('exp-bar').style.width = `${(player.exp / player.maxExp) * 100}%`;
+        document.getElementById('level-text').textContent = player.level;
+
+        document.getElementById('gold-text').textContent = player.gold;
+        document.getElementById('atk-text').textContent = getTotalAttack();
+        document.getElementById('weapon-icon').textContent = player.weapon.icon;
+        document.getElementById('weapon-name').textContent = player.weapon.name;
+        document.getElementById('floor-text').textContent = player.floor;
+    }
+
+    function showGameOver() {
+        document.getElementById('final-floor').textContent = player.floor;
+        document.getElementById('final-level').textContent = player.level;
+        document.getElementById('gameover-modal').classList.remove('hidden');
+    }
+
+    window.addEventListener('keydown', (e) => {
+        let key = e.key.toLowerCase();
+        if (key === 'arrowup' || key === 'w') movePlayer(0, -1);
+        else if (key === 'arrowdown' || key === 's') movePlayer(0, 1);
+        else if (key === 'arrowleft' || key === 'a') movePlayer(-1, 0);
+        else if (key === 'arrowright' || key === 'd') movePlayer(1, 0);
+        else if (key === 'e') attackAction();
+        else if (key === 'q') skillAction();
+        else if (e.code === 'Space') {
+            e.preventDefault();
+            defendAction();
+        }
+    });
+
+    setInterval(() => {
+        updateMonsters();
+    }, 1000);
+
+    function renderLoop() {
+        draw();
+        requestAnimationFrame(renderLoop);
+    }
+
+    renderLoop();
+</script>
+
+</body>
+</html>
