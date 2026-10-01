@@ -1,0 +1,1785 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>중세 성채 타워 디펜스 V9 - 적군 무기 & 도감 유형 개편</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0d0f12;color:#eee;font-family:Arial,"Noto Sans KR",sans-serif;user-select:none;overflow-x:hidden}
+.app{max-width:1220px;margin:auto;padding:14px;position:relative}
+
+/* Header & Navigation Bar */
+.top-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;background:#181c24;padding:10px 16px;border-radius:10px;border:1px solid #2d3748}
+.top-header h1{margin:0;font-size:22px;color:#e2e8f0;display:flex;align-items:center;gap:8px}
+.nav-btns{display:flex;gap:8px}
+
+.bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;background:#1a202c;padding:9px;border:1px solid #2d3748;border-radius:10px;margin-bottom:10px}
+.stat,button,select{background:#2d3748;color:#fff;border:1px solid #4a5568;border-radius:7px;padding:8px 11px;font-weight:bold;font-size:13px}
+select{cursor:pointer;background:#1a202c}
+button{cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:5px}
+button:hover{background:#4a5568}
+.btn-primary{background:#2b6cb0;border-color:#3182ce}
+.btn-primary:hover{background:#3182ce}
+.btn-success{background:#276749;border-color:#2f855a}
+.btn-success:hover{background:#2f855a}
+.btn-warning{background:#d69e2e;color:#1a202c;border-color:#b7791f}
+.btn-warning:hover{background:#ecc94b}
+.btn-gacha{background:linear-gradient(135deg, #b45309 0%, #78350f 100%);border-color:#f59e0b;color:#fffbeeb}
+.btn-gacha:hover{background:linear-gradient(135deg, #d97706 0%, #92400e 100%);box-shadow:0 0 12px rgba(245,158,11,0.5)}
+
+#removeBtn{background:#742a2a;border-color:#9b2c2c}
+#removeBtn.on{background:#c53030;border-color:#e53e3e}
+
+/* Canvas Wrap */
+.wrap{position:relative;overflow:hidden;background:#090909;border-radius:10px;border:1px solid #2d3748}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1120/640;background:#d7c497;cursor:crosshair}
+#msgEl{position:absolute;top:12px;left:50%;transform:translateX(-50%);padding:10px 18px;background:rgba(15,23,42,0.92);border:1px solid #cbd5e1;border-radius:8px;opacity:0;pointer-events:none;transition:opacity 0.25s;font-weight:bold;z-index:10;text-align:center;font-size:14px;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,0.5)}
+
+/* Tower Selection Cards Grid */
+.towers{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}
+.card{background:#1e2430;border:2px solid #3a4556;text-align:left;min-height:110px;padding:9px;position:relative;border-radius:8px;cursor:pointer}
+.card:hover{border-color:#63b3ed}
+.card.sel{border-color:#63b3ed;background:#2d3748;box-shadow:0 0 10px rgba(99,179,237,0.3)}
+.card.lock{opacity:.45;cursor:not-allowed;filter:grayscale(60%)}
+.badge{float:right;padding:3px 6px;border-radius:5px;font-size:10px;font-weight:bold}
+.rarity-common{background:#4a5568;color:#edf2f7}
+.rarity-rare{background:#2b6cb0;color:#ebf8ff}
+.rarity-epic{background:#6b46c1;color:#faf5ff}
+.rarity-mythic{background:linear-gradient(135deg, #b91c1c, #f59e0b);color:#fff;text-shadow:0 1px 2px #000}
+.rarity-legacy{background:linear-gradient(135deg, #6d28d9, #0284c7);color:#fff;text-shadow:0 1px 2px #000}
+
+/* Enemy Category Badges */
+.type-combat{background:#9b2c2c;color:#fff;border:1px solid #f56565}
+.type-transport{background:#2b6cb0;color:#fff;border:1px solid #4299e1}
+.type-boss{background:#6b46c1;color:#fff;border:1px solid #9f7aea;box-shadow:0 0 6px rgba(159,122,234,0.5)}
+
+.limit-info{font-size:11px;color:#a0aec0;margin-top:2px}
+.small{font-size:11px;color:#cbd5e0;line-height:1.35;margin-top:5px}
+
+/* Help Box */
+.help{color:#a0aec0;font-size:12px;line-height:1.6;margin-top:10px;background:#171923;padding:12px 16px;border-radius:8px;border:1px solid #2d3748}
+
+/* Screens / Overlays */
+.screen{display:none !important}
+.screen.active{display:block !important}
+
+/* Main Menu Overlay */
+#mainMenu.active{display:flex !important;flex-direction:column;align-items:center;justify-content:center;min-height:580px;background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);border-radius:12px;border:1px solid #334155;padding:40px;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,0.5)}
+.menu-title{font-size:34px;font-weight:900;color:#f8fafc;margin-bottom:8px;text-shadow:0 2px 10px rgba(0,0,0,0.7);display:flex;align-items:center;gap:12px}
+.menu-sub{font-size:15px;color:#94a3b8;margin-bottom:30px}
+.menu-btns{display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
+.menu-btn{padding:13px 20px;font-size:15px;font-weight:bold;border-radius:10px;justify-content:center}
+
+/* Ancient Codex / Book Modal Styling */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(8,6,12,0.85);z-index:100;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.modal-overlay.active{display:flex}
+
+.modal-content{background:#2a1a0e;border:8px solid #3d2716;outline:2px solid #a88448;width:100%;max-width:980px;max-height:90vh;border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.9), inset 0 0 30px rgba(0,0,0,0.8);position:relative}
+
+.modal-header{padding:16px 24px;background:linear-gradient(180deg, #1f1208 0%, #2a180b 100%);border-bottom:2px solid #8c6a38;display:flex;justify-content:space-between;align-items:center}
+.modal-header h2{margin:0;font-size:22px;color:#f3e3be;font-family:Georgia, serif;letter-spacing:1px;text-shadow:0 2px 4px rgba(0,0,0,0.8);display:flex;align-items:center;gap:8px}
+.close-book-btn{background:transparent;border:1px solid #7a5c30;color:#d4b882;font-size:16px;padding:4px 10px;border-radius:6px;cursor:pointer;transition:all 0.2s}
+.close-book-btn:hover{background:#4a341b;color:#fff;border-color:#b89858}
+
+.modal-tabs{display:flex;gap:12px;padding:12px 24px 0 24px;background:#22140a;border-bottom:3px solid #705228}
+.tab-btn{background:#3a2514;border:1px solid #634723;border-bottom:none;padding:10px 20px;border-radius:8px 8px 0 0;font-weight:bold;font-family:Georgia, serif;color:#a89068;cursor:pointer;transition:all 0.2s}
+.tab-btn:hover{background:#4d331c;color:#e3cb98}
+.tab-btn.active{background:#e8d7b0;color:#2b180a;border-color:#8c6a38;box-shadow:0 -3px 8px rgba(0,0,0,0.3)}
+
+.modal-body{padding:24px;background:#e8d7b0;background-image:radial-gradient(#d8c499 1px, transparent 1px);background-size:20px 20px;overflow-y:auto;flex:1;display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:18px;color:#2c1b0e}
+
+.codex-card{background:#f3e8ca;border:2px solid #a88850;border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:inset 0 0 15px rgba(139,69,19,0.12), 3px 4px 8px rgba(0,0,0,0.25);position:relative}
+.codex-card::before{content:"";position:absolute;top:3px;left:3px;right:3px;bottom:3px;border:1px solid rgba(168,136,80,0.3);pointer-events:none}
+.codex-card-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #c8a86b;padding-bottom:5px}
+.codex-card-title{font-size:16px;font-weight:bold;color:#3b220d;font-family:Georgia, serif;display:flex;align-items:center;gap:6px}
+
+/* Improved canvas container aspect ratio to prevent clipping */
+.codex-preview{height:110px;background:#dfceaa;border:1px solid #b8985c;border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;box-shadow:inset 0 2px 5px rgba(0,0,0,0.15);overflow:hidden}
+.codex-preview canvas{width:160px;height:100px;display:block}
+
+.codex-stats{font-size:12px;color:#4a321a;line-height:1.5;font-family:Georgia, serif}
+.codex-desc{font-size:11px;color:#382413;background:#e5d3ab;padding:8px;border-radius:6px;margin-top:auto;border:1px dashed #b5955a;line-height:1.4;font-family:Georgia, serif}
+
+/* Gacha Modal Styling */
+.gacha-box{background:linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);border:4px solid #f59e0b;border-radius:16px;width:100%;max-width:880px;padding:24px;box-shadow:0 0 35px rgba(245,158,11,0.4);display:flex;flex-direction:column;gap:18px;max-height:90vh;overflow-y:auto}
+.gacha-header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #78350f;padding-bottom:14px}
+.gacha-header h2{margin:0;font-size:24px;color:#fef3c7;display:flex;align-items:center;gap:10px}
+.gacha-info-bar{display:flex;justify-content:space-between;align-items:center;background:#451a03;padding:12px 18px;border-radius:10px;border:1px solid #92400e;font-size:14px}
+.gacha-cost-badge{background:#d97706;color:#fff;padding:4px 10px;border-radius:6px;font-weight:bold}
+.gacha-btns{display:flex;gap:14px;justify-content:center;margin-top:6px}
+.gacha-btn{padding:14px 28px;font-size:16px;font-weight:bold;border-radius:10px;border:none;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:4px}
+.gacha-btn-1{background:linear-gradient(135deg, #3b82f6, #1d4ed8);color:#fff}
+.gacha-btn-1:hover{background:linear-gradient(135deg, #60a5fa, #2563eb);box-shadow:0 0 15px rgba(59,130,246,0.6)}
+.gacha-btn-10{background:linear-gradient(135deg, #d97706, #b45309);color:#fff}
+.gacha-btn-10:hover{background:linear-gradient(135deg, #f59e0b, #d97706);box-shadow:0 0 20px rgba(245,158,11,0.7)}
+
+.gacha-results{display:grid;grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));gap:12px;min-height:160px;background:#0f0728;padding:16px;border-radius:12px;border:1px solid #3b0764;align-items:center;justify-content:center}
+.gacha-card-result{background:#1e1b4b;border:2px solid #6b21a8;border-radius:10px;padding:10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px;animation:cardPop 0.35s ease-out;position:relative;overflow:hidden}
+.gacha-card-result.mythic{border-color:#f59e0b;box-shadow:0 0 15px rgba(245,158,11,0.6);background:linear-gradient(135deg, #451a03, #78350f)}
+.gacha-card-result.legacy{border-color:#06b6d4;box-shadow:0 0 15px rgba(6,182,212,0.6);background:linear-gradient(135deg, #1e1b4b, #0f766e)}
+
+@keyframes cardPop{
+ 0%{transform:scale(0.3) rotate(-10deg);opacity:0}
+ 70%{transform:scale(1.1) rotate(2deg)}
+ 100%{transform:scale(1) rotate(0);opacity:1}
+}
+
+.refund-tag{font-size:10px;background:#ef4444;color:#fff;padding:2px 6px;border-radius:4px;font-weight:bold;margin-top:2px}
+
+.confirm-box{background:#1e293b;border:2px solid #f59e0b;border-radius:12px;padding:24px;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 25px rgba(0,0,0,0.6)}
+.confirm-box h3{color:#f59e0b;margin-top:0;font-size:20px;display:flex;align-items:center;justify-content:center;gap:8px}
+.confirm-box p{color:#cbd5e1;font-size:14px;line-height:1.6;margin:16px 0 24px 0}
+.confirm-btns{display:flex;gap:12px;justify-content:center}
+
+@media(max-width:1000px){.towers{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:550px){.towers{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="app">
+ 
+ <!-- Main Menu Screen -->
+ <div id="mainMenu" class="screen active">
+  <div class="menu-title">⚔️ 중세 성채 타워 디펜스 V9</div>
+  <div class="menu-sub">골드로 전설 타워를 소환하고 침략군을 격퇴하세요!</div>
+  <div class="menu-btns">
+   <button class="menu-btn btn-primary" id="m-startBtn">🎮 게임 시작 / 이어서 하기</button>
+   <button class="menu-btn btn-gacha" id="m-gachaBtn">🔮 골드 신화/레거시 타워 뽑기</button>
+   <button class="menu-btn btn-success" id="m-bookBtn">📖 전략 고서적 도감</button>
+   <button class="menu-btn btn-warning" id="m-resetBtn">🔄 데이터 초기화</button>
+  </div>
+ </div>
+
+ <!-- Main Game Screen -->
+ <div id="gameScreen" class="screen">
+  <div class="top-header">
+   <h1>⚔️ 중세 성채 타워 디펜스 V9</h1>
+   <div class="nav-btns">
+    <button id="g-gachaBtn" class="btn-gacha">🔮 골드 뽑기 창</button>
+    <button id="g-bookBtn" class="btn-success">📖 도감 보기</button>
+    <button id="g-mainMenuBtn">🏠 메인 메뉴</button>
+   </div>
+  </div>
+
+  <div class="bar">
+   <div class="stat">💰 <span id="gold">300</span>G</div>
+   <div class="stat">❤️ <span id="hp">20</span></div>
+   <div class="stat">🏰 타워 <span id="towerTotal">0</span>/<span id="towerMax">10</span></div>
+   <div class="stat">🚩 스테이지 <select id="stageSelect"></select></div>
+   <div class="stat">☠️ <span id="kills">0</span></div>
+   <div class="stat">📈 배율 <span id="mult">1.00×</span></div>
+   <button id="startBtn" class="btn-primary">웨이브 시작</button>
+   <button id="pauseBtn">일시정지</button>
+   <button id="speedBtn">속도 ×1</button>
+   <button id="removeBtn">🗑 타워 제거</button>
+  </div>
+
+  <div class="wrap">
+   <canvas id="c" width="1120" height="640"></canvas>
+   <div id="msgEl"></div>
+  </div>
+
+  <!-- Tower Selection Grid -->
+  <div class="towers">
+   <button class="card sel" id="b-basic">
+    <span class="badge rarity-common">커먼</span>
+    <b>🏰 왕국 성탑</b>
+    <div class="limit-info">제한: <span id="basicCount">0</span>/6개 (기본Lv.<span id="basicBaseLv">1</span>)</div>
+    <div class="small">공격력 24 · 사거리 145<br>비용 55G</div>
+   </button>
+   <button class="card lock" id="b-cross">
+    <span class="badge rarity-rare" id="crossBadge">🔒 3단계</span>
+    <b>🏹 석궁 성탑</b>
+    <div class="limit-info">제한: <span id="crossCount">0</span>/3개 (기본Lv.<span id="crossBaseLv">1</span>)</div>
+    <div class="small">공격력 9 · 속사사격<br>비용 90G</div>
+   </button>
+   <button class="card lock" id="b-cannon">
+    <span class="badge rarity-rare" id="cannonBadge">🔒 8단계</span>
+    <b>💣 왕실 대포</b>
+    <div class="limit-info">제한: <span id="cannonCount">0</span>/3개 (기본Lv.<span id="cannonBaseLv">1</span>)</div>
+    <div class="small">공격력 220 · 광역 폭발<br>비용 130G</div>
+   </button>
+   <button class="card lock" id="b-catapult">
+    <span class="badge rarity-epic" id="catapultBadge">🔒 10단계</span>
+    <b>☄️ 투석기</b>
+    <div class="limit-info">제한: <span id="catapultCount">0</span>/2개 (기본Lv.<span id="catapultBaseLv">1</span>)</div>
+    <div class="small">공격력 360 · 초장거리<br>비용 200G</div>
+   </button>
+   <button class="card lock" id="b-mythic">
+    <span class="badge rarity-mythic" id="mythicBadge">🔒 뽑기 해금</span>
+    <b>🐉 드래곤 성탑</b>
+    <div class="limit-info">제한: <span id="mythicCount">0</span>/1개 (기본Lv.<span id="mythicBaseLv">1</span>)</div>
+    <div class="small">공격력 480 · 근접 방사 브레스<br>비용 350G</div>
+   </button>
+   <button class="card lock" id="b-legacy">
+    <span class="badge rarity-legacy" id="legacyBadge">🔒 뽑기 해금</span>
+    <b>🔮 고대 마법탑</b>
+    <div class="limit-info">제한: <span id="legacyCount">0</span>/1개 (기본Lv.<span id="legacyBaseLv">1</span>)</div>
+    <div class="small">공격력 50 · 주변 아군 '분노' 버프<br>비용 500G</div>
+   </button>
+  </div>
+
+  <div class="help">
+   <b>💡 ⚔️ 적군 무기 & 도감 개편 시스템:</b><br>
+   • <b>전투형 적군 무기 장착:</b> 궁수(활/화살), 기사(레이피어), 기마병(랜스 창), 거인(맨손 주먹)이 독자적인 무기를 들고 공격합니다.<br>
+   • <b>수송형 적군:</b> 공성 추, 비행정, 전차, 전투함은 무기를 장착하지 않는 수송형 병기로 구분됩니다.<br>
+   • <b>도감 뷰어 개선:</b> 적군 및 성탑 도감 내 그래픽 비율이 완벽하게 맞추어져 잘리지 않습니다.
+  </div>
+ </div>
+
+</div>
+
+<!-- Gacha Modal Window -->
+<div id="gachaModal" class="modal-overlay">
+ <div class="gacha-box">
+  <div class="gacha-header">
+   <h2>🔮 전설 성탑 & 레벨업 골드 소환진</h2>
+   <button id="closeGachaBtn" class="close-book-btn">✖ 닫기</button>
+  </div>
+  
+  <div class="gacha-info-bar">
+   <div>💰 보유 골드: <b id="gachaGoldVal" style="color:#fcd34d;font-size:16px">300G</b></div>
+   <div>현재 필요 비용: <span class="gacha-cost-badge" id="gachaCostTag">200 골드 / 1회</span></div>
+  </div>
+
+  <div class="gacha-results" id="gachaResults">
+   <div style="color:#a78bfa;font-size:14px;text-align:center;grid-column:1/-1;padding:30px">
+    🔮 [1회 소환] 또는 [10회 연속 소환] 버튼을 누르면 골드로 타워 및 레벨업을 획득합니다.
+   </div>
+  </div>
+
+  <div class="gacha-btns">
+   <button class="gacha-btn gacha-btn-1" id="draw1Btn">
+    <span>🔮 1회 소환</span>
+    <small id="draw1CostText">200G</small>
+   </button>
+   <button class="gacha-btn gacha-btn-10" id="draw10Btn">
+    <span>✨ 10회 연속 소환</span>
+    <small id="draw10CostText">2,000G</small>
+   </button>
+  </div>
+ </div>
+</div>
+
+<!-- Ancient Grimoire Codex Modal -->
+<div id="codexModal" class="modal-overlay">
+ <div class="modal-content">
+  <div class="modal-header">
+   <h2>📜 왕국 전략 고서적 (Ancient Grimoire)</h2>
+   <button id="closeCodexBtn" class="close-book-btn">✖ 닫기</button>
+  </div>
+  <div class="modal-tabs">
+   <button id="tabTowers" class="tab-btn active">🏰 수호 성탑 도감</button>
+   <button id="tabEnemies" class="tab-btn">☠️ 침략군 도감</button>
+  </div>
+  <div id="codexBody" class="modal-body"></div>
+ </div>
+</div>
+
+<!-- Reset Confirmation Modal -->
+<div id="resetConfirmModal" class="modal-overlay">
+ <div class="confirm-box">
+  <h3>⚠️ 데이터 초기화 확인</h3>
+  <p>저장된 모든 진행 기록 및 해금 내역이 완전히 삭제됩니다.<br>정말로 초기화하시겠습니까?</p>
+  <div class="confirm-btns">
+   <button id="confirmResetBtn" class="btn-warning">🔄 예, 초기화합니다</button>
+   <button id="cancelResetBtn" style="background:#4a5568;border-color:#718096">취소</button>
+  </div>
+ </div>
+</div>
+
+<script>
+(()=>{
+"use strict";
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+const CELL = 40, W = 1120, H = 640;
+const enemyCastle = {x: 60, y: 320};
+const ourCastle = {x: 1060, y: 320};
+const banR = 400;
+
+// UI Elements
+const mainMenuScreen = document.getElementById("mainMenu");
+const gameScreen = document.getElementById("gameScreen");
+
+const mStartBtn = document.getElementById("m-startBtn");
+const mGachaBtn = document.getElementById("m-gachaBtn");
+const mBookBtn = document.getElementById("m-bookBtn");
+const mResetBtn = document.getElementById("m-resetBtn");
+
+const gGachaBtn = document.getElementById("g-gachaBtn");
+const gBookBtn = document.getElementById("g-bookBtn");
+const gMainMenuBtn = document.getElementById("g-mainMenuBtn");
+
+const gachaModal = document.getElementById("gachaModal");
+const closeGachaBtn = document.getElementById("closeGachaBtn");
+const draw1Btn = document.getElementById("draw1Btn");
+const draw10Btn = document.getElementById("draw10Btn");
+const gachaGoldVal = document.getElementById("gachaGoldVal");
+const gachaCostTag = document.getElementById("gachaCostTag");
+const draw1CostText = document.getElementById("draw1CostText");
+const draw10CostText = document.getElementById("draw10CostText");
+const gachaResults = document.getElementById("gachaResults");
+
+const codexModal = document.getElementById("codexModal");
+const closeCodexBtn = document.getElementById("closeCodexBtn");
+const tabTowers = document.getElementById("tabTowers");
+const tabEnemies = document.getElementById("tabEnemies");
+const codexBody = document.getElementById("codexBody");
+
+const resetConfirmModal = document.getElementById("resetConfirmModal");
+const confirmResetBtn = document.getElementById("confirmResetBtn");
+const cancelResetBtn = document.getElementById("cancelResetBtn");
+
+const goldEl = document.getElementById("gold");
+const hpEl = document.getElementById("hp");
+const stageSelect = document.getElementById("stageSelect");
+const killsEl = document.getElementById("kills");
+const multEl = document.getElementById("mult");
+const towerTotalEl = document.getElementById("towerTotal");
+const towerMaxEl = document.getElementById("towerMax");
+const msgEl = document.getElementById("msgEl");
+
+const startBtn = document.getElementById("startBtn");
+const pauseBtn = document.getElementById("pauseBtn");
+const speedBtn = document.getElementById("speedBtn");
+const removeBtn = document.getElementById("removeBtn");
+
+const bBasic = document.getElementById("b-basic");
+const bCross = document.getElementById("b-cross");
+const bCannon = document.getElementById("b-cannon");
+const bCatapult = document.getElementById("b-catapult");
+const bMythic = document.getElementById("b-mythic");
+const bLegacy = document.getElementById("b-legacy");
+
+const crossBadge = document.getElementById("crossBadge");
+const cannonBadge = document.getElementById("cannonBadge");
+const catapultBadge = document.getElementById("catapultBadge");
+const mythicBadge = document.getElementById("mythicBadge");
+const legacyBadge = document.getElementById("legacyBadge");
+
+const basicCountEl = document.getElementById("basicCount");
+const crossCountEl = document.getElementById("crossCount");
+const cannonCountEl = document.getElementById("cannonCount");
+const catapultCountEl = document.getElementById("catapultCount");
+const mythicCountEl = document.getElementById("mythicCount");
+const legacyCountEl = document.getElementById("legacyCount");
+
+const basicBaseLvEl = document.getElementById("basicBaseLv");
+const crossBaseLvEl = document.getElementById("crossBaseLv");
+const cannonBaseLvEl = document.getElementById("cannonBaseLv");
+const catapultBaseLvEl = document.getElementById("catapultBaseLv");
+const mythicBaseLvEl = document.getElementById("mythicBaseLv");
+const legacyBaseLvEl = document.getElementById("legacyBaseLv");
+
+const TOWER_LIMITS = { basic: 6, cross: 3, cannon: 3, catapult: 2, mythic: 1, legacy: 1 };
+
+const towersData = {
+ basic: { name: "왕국 성탑", rarity: "커먼", cost: 55, range: 145, minRange: 0, dmg: 24, rate: 1200, bs: 390, desc: "균형 잡힌 사거리와 연사력을 가진 기본 성탑입니다." },
+ cross: { name: "석궁 성탑", rarity: "희귀", cost: 90, range: 300, minRange: 0, dmg: 9, rate: 300, bs: 820, desc: "긴 사거리로 속사 사격을 퍼붓는 석궁 탑입니다." },
+ cannon: { name: "왕실 대포", rarity: "희귀", cost: 130, range: 185, minRange: 0, dmg: 220, rate: 2600, bs: 260, splash: 65, desc: "타격 지점 주위에 광역 폭발 피해를 줍니다." },
+ catapult: { name: "투석기", rarity: "에픽", cost: 200, range: 420, minRange: 120, dmg: 360, rate: 3000, bs: 220, splash: 95, desc: "초장거리 광역 투석을 날립니다. (근접 공격 불가)" },
+ mythic: { name: "드래곤 성탑", rarity: "신화", cost: 350, range: 110, minRange: 0, dmg: 480, rate: 1200, bs: 0, desc: "사거리는 매우 짧지만, 접근한 적 전체에게 방사형 360도 용의 브레스를 뿜어 피해를 줍니다." },
+ legacy: { name: "고대 마법탑", rarity: "레거시", cost: 500, range: 320, minRange: 0, dmg: 50, rate: 350, bs: 1200, buffRange: 220, desc: "약한 아케인 빔을 발사하지만 주변(220px) 아군 타워에 '분노' 버프(공속 +40%, 공격력 +25%)를 부여합니다." }
+};
+
+// Categorized enemy dictionary with weapons info
+const enemiesData = {
+ archer: { name: "궁수", type: "전투형", typeBadge: "type-combat", weapon: "목재 곡궁", hp: 55, sp: .72, dmg: 1, reward: 8, desc: "목재 곡궁을 장착하고 사격을 퍼붓는 기본적인 원거리 병사입니다." },
+ knight: { name: "기사", type: "전투형", typeBadge: "type-combat", weapon: "강철 레이피어", hp: 105, sp: .98, dmg: 2, reward: 12, desc: "날카로운 레이피어 검과 단단한 갑옷을 갖춘 고급 전투 수호 기사입니다." },
+ cavalry: { name: "기마병", type: "전투형", typeBadge: "type-combat", weapon: "돌진 마상 창(랜스)", hp: 155, sp: 1.34, dmg: 3, reward: 16, desc: "긴 돌진용 마상 창(랜스)을 들고 매우 빠른 속도로 돌격합니다." },
+ ram: { name: "공성 추", type: "수송형", typeBadge: "type-transport", weapon: "없음 (중갑 수송 병기)", hp: 320, sp: 1.1, dmg: 4, reward: 22, desc: "무기를 안 든 수송 병기입니다. 파괴 시 내부에서 레이피어 기사 2명이 출격합니다." },
+ airship: { name: "비행정", type: "수송형", typeBadge: "type-transport", weapon: "없음 (공중 수송선)", hp: 280, sp: 1.25, dmg: 3, reward: 25, desc: "무기를 안 든 공중 수송 비행정입니다. 추락 시 궁수 4명이 낙하하여 난입합니다." },
+ chariot: { name: "전차", type: "수송형", typeBadge: "type-transport", weapon: "없음 (마비 수송 전차)", hp: 400, sp: 1.3, dmg: 5, reward: 30, desc: "무기를 안 든 중갑 전차입니다. 주기적으로 방어 타워를 충격파로 마비시킵니다." },
+ warship: { name: "전투함", type: "수송형", typeBadge: "type-transport", weapon: "없음 (요새 수송함)", hp: 1800, sp: 0.85, dmg: 6, reward: 60, desc: "무기를 안 든 거대 요새함입니다. 주기적으로 전투 병사 3명을 출격시킵니다." },
+ giant: { name: "거인 (BOSS)", type: "보스", typeBadge: "type-boss", weapon: "맨손 (거대 주먹)", hp: 10000, sp: 0.7, dmg: 15, reward: 350, isBoss: true, desc: "무기 없이 파괴적인 맨손 주먹으로 난동을 부리는 초대형 보스입니다." }
+};
+
+const fixedPath = [{x:62,y:320},{x:130,y:320},{x:130,y:100},{x:260,y:100},{x:260,y:540},{x:400,y:540},{x:400,y:150},{x:550,y:150},{x:550,y:500},{x:700,y:500},{x:700,y:90},{x:850,y:90},{x:850,y:470},{x:980,y:470},{x:980,y:320},{x:1058,y:320}];
+let plen = 0;
+
+const S = {
+ gold: 300, hp: 20, wave: 1, maxUnlockedStage: 1, clearedStages: [], kills: 0, speed: 1, run: false, pause: false, over: false, sel: "basic", remove: false,
+ unlock: { basic: true, cross: false, cannon: false, catapult: false, mythic: false, legacy: false },
+ baseLv: { basic: 1, cross: 1, cannon: 1, catapult: 1, mythic: 1, legacy: 1 },
+ T: [], E: [], P: [], FX: [], left: 0, spawn: 0, last: performance.now(), mt: 0, bossSpawned: false,
+ stage10Delay: 0, totalTowerMax: 10, isRetry: false
+};
+
+let mousePos = null;
+let currentCodexTab = "towers";
+
+function calcLen() {
+ plen = 0;
+ for (let i = 0; i < fixedPath.length - 1; i++) {
+  plen += Math.hypot(fixedPath[i+1].x - fixedPath[i].x, fixedPath[i+1].y - fixedPath[i].y);
+ }
+}
+
+function posAt(q) {
+ let r = q;
+ for (let i = 0; i < fixedPath.length - 1; i++) {
+  let a = fixedPath[i], b = fixedPath[i+1], L = Math.hypot(b.x - a.x, b.y - a.y);
+  if (r <= L) {
+   let t = r / L;
+   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+  }
+  r -= L;
+ }
+ return { x: fixedPath[fixedPath.length - 1].x, y: fixedPath[fixedPath.length - 1].y };
+}
+
+function dist(a, b) {
+ return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function showMsg(txt, ms = 1500) {
+ msgEl.innerHTML = txt;
+ msgEl.style.opacity = 1;
+ S.mt = ms;
+}
+
+function getTowerCount(type) {
+ return S.T.filter(t => t.type === type).length;
+}
+
+function isStageCleared(stg) {
+ return S.clearedStages.includes(stg);
+}
+
+function getMaxTowerLevel() {
+ return isStageCleared(15) ? 12 : 8;
+}
+
+function getGachaCost() {
+ return S.wave > 10 ? 1000 : 200;
+}
+
+function updateStageDropdown() {
+ stageSelect.innerHTML = "";
+ for (let i = 1; i <= Math.max(20, S.maxUnlockedStage); i++) {
+  if (i > S.maxUnlockedStage) break;
+  let opt = document.createElement("option");
+  opt.value = i;
+  let label = "스테이지 " + i;
+  if (S.clearedStages.includes(i)) label += " (클리어)";
+  opt.textContent = label;
+  if (i === S.wave) opt.selected = true;
+  stageSelect.appendChild(opt);
+ }
+}
+
+function updateUI() {
+ goldEl.textContent = Math.floor(S.gold);
+ hpEl.textContent = Math.max(0, S.hp);
+ killsEl.textContent = S.kills;
+ multEl.textContent = (S.wave >= 8 ? (1 + (S.wave - 8) * .08) : 1).toFixed(2) + "×";
+ pauseBtn.textContent = S.pause ? "계속하기" : "일시정지";
+ speedBtn.textContent = "속도 ×" + S.speed;
+ 
+ towerTotalEl.textContent = S.T.length;
+ towerMaxEl.textContent = S.totalTowerMax;
+ 
+ basicCountEl.textContent = getTowerCount("basic");
+ crossCountEl.textContent = getTowerCount("cross");
+ cannonCountEl.textContent = getTowerCount("cannon");
+ catapultCountEl.textContent = getTowerCount("catapult");
+ mythicCountEl.textContent = getTowerCount("mythic");
+ legacyCountEl.textContent = getTowerCount("legacy");
+
+ basicBaseLvEl.textContent = S.baseLv.basic;
+ crossBaseLvEl.textContent = S.baseLv.cross;
+ cannonBaseLvEl.textContent = S.baseLv.cannon;
+ catapultBaseLvEl.textContent = S.baseLv.catapult;
+ mythicBaseLvEl.textContent = S.baseLv.mythic;
+ legacyBaseLvEl.textContent = S.baseLv.legacy;
+ 
+ bBasic.classList.toggle("sel", S.sel === "basic" && !S.remove);
+ bCross.classList.toggle("sel", S.sel === "cross" && !S.remove);
+ bCannon.classList.toggle("sel", S.sel === "cannon" && !S.remove);
+ bCatapult.classList.toggle("sel", S.sel === "catapult" && !S.remove);
+ bMythic.classList.toggle("sel", S.sel === "mythic" && !S.remove);
+ bLegacy.classList.toggle("sel", S.sel === "legacy" && !S.remove);
+ 
+ bCross.classList.toggle("lock", !S.unlock.cross);
+ bCannon.classList.toggle("lock", !S.unlock.cannon);
+ bCatapult.classList.toggle("lock", !S.unlock.catapult);
+ bMythic.classList.toggle("lock", !S.unlock.mythic);
+ bLegacy.classList.toggle("lock", !S.unlock.legacy);
+ 
+ crossBadge.textContent = S.unlock.cross ? "희귀" : "🔒 3단계";
+ cannonBadge.textContent = S.unlock.cannon ? "희귀" : "🔒 8단계";
+ catapultBadge.textContent = S.unlock.catapult ? "에픽" : "🔒 10단계";
+ mythicBadge.textContent = S.unlock.mythic ? "신화" : "🔒 뽑기해금";
+ legacyBadge.textContent = S.unlock.legacy ? "레거시" : "🔒 뽑기해금";
+ 
+ removeBtn.classList.toggle("on", S.remove);
+ removeBtn.textContent = S.remove ? "🗑 제거 모드 ON" : "🗑 타워 제거";
+ 
+ updateStageDropdown();
+ updateGachaUI();
+}
+
+function updateGachaUI() {
+ gachaGoldVal.textContent = Math.floor(S.gold) + "G";
+ const cost = getGachaCost();
+ gachaCostTag.textContent = cost + "G / 1회";
+ draw1CostText.textContent = cost + "G";
+ draw10CostText.textContent = (cost * 10) + "G";
+}
+
+function switchScreen(screenName) {
+ mainMenuScreen.classList.remove("active");
+ gameScreen.classList.remove("active");
+ if (screenName === "main") {
+  mainMenuScreen.classList.add("active");
+ } else if (screenName === "game") {
+  gameScreen.classList.add("active");
+ }
+}
+
+function saveGame(silent = true) {
+ try {
+  const saveData = {
+   gold: S.gold,
+   hp: S.hp,
+   wave: S.wave,
+   maxUnlockedStage: S.maxUnlockedStage,
+   clearedStages: S.clearedStages,
+   kills: S.kills,
+   unlock: S.unlock,
+   baseLv: S.baseLv,
+   totalTowerMax: S.totalTowerMax,
+   T: S.T.map(t => ({ x: t.x, y: t.y, type: t.type, lv: t.lv }))
+  };
+  localStorage.setItem("castle_td_v9_save", JSON.stringify(saveData));
+  if (!silent) showMsg("💾 게임 상태가 저장되었습니다.");
+ } catch(e){}
+}
+
+function loadGame() {
+ try {
+  const raw = localStorage.getItem("castle_td_v9_save");
+  if (!raw) return false;
+  const data = JSON.parse(raw);
+  S.gold = data.gold ?? 300;
+  S.hp = data.hp ?? 20;
+  S.wave = data.wave ?? 1;
+  S.maxUnlockedStage = data.maxUnlockedStage ?? 1;
+  S.clearedStages = data.clearedStages ?? [];
+  S.kills = data.kills ?? 0;
+  S.unlock = data.unlock ?? { basic: true, cross: false, cannon: false, catapult: false, mythic: false, legacy: false };
+  S.baseLv = data.baseLv ?? { basic: 1, cross: 1, cannon: 1, catapult: 1, mythic: 1, legacy: 1 };
+  S.totalTowerMax = data.totalTowerMax ?? 10;
+  S.T = (data.T || []).map(t => ({ x: t.x, y: t.y, type: t.type, lv: t.lv, cd: 0, stun: 0 }));
+  updateUI();
+  return true;
+ } catch(e){ return false; }
+}
+
+setInterval(() => { saveGame(true); }, 10000);
+
+function chooseTower(k) {
+ if (!S.unlock[k]) {
+  if (k === "mythic" || k === "legacy") {
+   showMsg("🔮 [골드 소환진]에서 해금할 수 있는 전설 타워입니다.");
+  } else {
+   let stageReq = k === "cross" ? 3 : k === "cannon" ? 8 : 10;
+   showMsg("🔒 " + stageReq + "스테이지 클리어 후 해금됩니다.");
+  }
+  return;
+ }
+ S.remove = false;
+ S.sel = k;
+ updateUI();
+}
+
+function resetGame() {
+ S.gold = 300; S.hp = 20; S.wave = 1; S.maxUnlockedStage = 1; S.clearedStages = []; S.kills = 0; S.speed = 1;
+ S.run = false; S.pause = false; S.over = false; S.sel = "basic"; S.remove = false;
+ S.unlock = { basic: true, cross: false, cannon: false, catapult: false, mythic: false, legacy: false };
+ S.baseLv = { basic: 1, cross: 1, cannon: 1, catapult: 1, mythic: 1, legacy: 1 };
+ S.totalTowerMax = 10;
+ S.isRetry = false;
+ S.T = []; S.E = []; S.P = []; S.FX = []; S.left = 0; S.spawn = 0; S.bossSpawned = false; S.stage10Delay = 0;
+ S.last = performance.now();
+ localStorage.removeItem("castle_td_v9_save");
+ showMsg("새 게임이 초기화되었습니다.");
+ updateUI();
+}
+
+function startWave() {
+ if (S.run) {
+  showMsg("현재 웨이브가 진행 중입니다.");
+  return;
+ }
+ S.over = false;
+ S.run = true;
+ S.pause = false;
+ S.bossSpawned = false;
+ S.stage10Delay = 0;
+ S.E = []; S.P = [];
+ 
+ const isReplay = isStageCleared(S.wave) || S.isRetry;
+ 
+ if (S.wave === 10) {
+  S.left = 31;
+  let msg = "⚠️ [보스 스테이지] 맨손 거인이 선출격합니다!<br>25초 후 적 호위 부대가 쏟아집니다!";
+  if (isReplay) msg += "<br><span style='color:#f6ad55;font-size:12px'>(재도전/클리어: 골드 60% 지급)</span>";
+  showMsg(msg, 3200);
+ } else {
+  S.left = S.wave === 1 ? 12 : S.wave === 2 ? 18 : S.wave === 3 ? 25 : 30 + (S.wave - 4) * 6;
+  let msg = "🌊 " + S.wave + "스테이지 시작! (적 " + S.left + "명 출격)";
+  if (isReplay) msg += " <span style='color:#f6ad55;font-size:12px'>(재도전: 골드 60%)</span>";
+  showMsg(msg, 1800);
+ }
+ updateUI();
+}
+
+function spawnEnemy(forcedKind = null, customPos = null) {
+ let k = forcedKind;
+ if (!k) {
+  if (S.wave === 10) {
+   if (!S.bossSpawned) {
+    k = "giant";
+    S.bossSpawned = true;
+    S.stage10Delay = 25000;
+   } else {
+    let r = Math.random();
+    k = r < .45 ? "cavalry" : r < .75 ? "knight" : "archer";
+   }
+  } else if (S.wave >= 15) {
+   let r = Math.random();
+   if (r < 0.18) k = "warship";
+   else if (r < 0.32) k = "ram";
+   else if (r < 0.46) k = "airship";
+   else if (r < 0.60) k = "chariot";
+   else if (r < 0.75) k = "cavalry";
+   else if (r < 0.90) k = "knight";
+   else k = "archer";
+  } else if (S.wave >= 11) {
+   let r = Math.random();
+   if (r < 0.20) k = "ram";
+   else if (r < 0.38) k = "airship";
+   else if (r < 0.55) k = "chariot";
+   else if (r < 0.75) k = "cavalry";
+   else if (r < 0.90) k = "knight";
+   else k = "archer";
+  } else if (S.wave <= 3) {
+   k = Math.random() < .5 ? "archer" : "knight";
+  } else if (S.wave <= 5) {
+   let r = Math.random();
+   k = r < .3 ? "cavalry" : r < .65 ? "knight" : "archer";
+  } else {
+   let r = Math.random();
+   k = r < .4 ? "cavalry" : r < .72 ? "knight" : "archer";
+  }
+ }
+ 
+ let b = enemiesData[k];
+ let isBossEnemy = b.isBoss || false;
+ let mul = (S.wave >= 8 && !isBossEnemy) ? 1 + (S.wave - 8) * .08 : 1;
+ let p = customPos || posAt(0);
+ let qVal = customPos ? (customPos.q || 0) : 0;
+ 
+ S.E.push({
+  kind: k, x: p.x, y: p.y, q: qVal,
+  hp: b.hp * mul, max: b.hp * mul,
+  sp: b.sp * (1 + Math.max(0, S.wave - 4) * .012),
+  dmg: b.dmg, reward: Math.round(b.reward * mul),
+  charge: 0, chargeCd: 3500, inv: 0, dist: 0, alive: true, flash: 0, isBoss: isBossEnemy,
+  shieldCd: 5000, shieldActive: 0, chariotCd: 3500, warshipCd: 2500
+ });
+}
+
+function spawnUpdate(dt) {
+ if (!S.run) return;
+ 
+ if (S.stage10Delay > 0) {
+  S.stage10Delay -= dt * S.speed;
+  if (S.stage10Delay <= 0) {
+   showMsg("⚠️️ 적 호위 부대가 쏟아져 나옵니다!", 2000);
+  } else {
+   return;
+  }
+ }
+ 
+ S.spawn -= dt * S.speed;
+ if (S.left > 0 && S.spawn <= 0) {
+  spawnEnemy();
+  S.left--;
+  S.spawn = Math.max(250, 650 - S.wave * 18);
+ }
+ if (S.left === 0 && S.E.length === 0) {
+  S.run = false;
+  S.isRetry = false;
+  
+  if (!S.clearedStages.includes(S.wave)) {
+   S.clearedStages.push(S.wave);
+  }
+  
+  let bonusGold = 100 + S.wave * 35;
+  S.gold += bonusGold;
+  
+  if (S.wave === 3 && !S.unlock.cross) {
+   S.unlock.cross = true;
+   showMsg("🏹 3스테이지 클리어! 희귀 [석궁 성탑] 해금! (💰 +" + bonusGold + "G)", 2400);
+  } else if (S.wave === 8 && !S.unlock.cannon) {
+   S.unlock.cannon = true;
+   showMsg("💣 8스테이지 클리어! 희귀 [왕실 대포] 해금! (💰 +" + bonusGold + "G)", 2400);
+  } else if (S.wave === 10) {
+   if (!S.unlock.catapult) S.unlock.catapult = true;
+   if (S.totalTowerMax < 15) {
+    S.totalTowerMax = 15;
+    showMsg("☄️ 거인 격파! 에픽 [투석기] 해금 & 최대 타워 15개로 확장! (💰 +" + bonusGold + "G)", 3200);
+   } else {
+    showMsg("🏆 10스테이지 클리어! (💰 +" + bonusGold + "G)", 1800);
+   }
+  } else {
+   showMsg("🏆 " + S.wave + "스테이지 클리어! (💰 +" + bonusGold + "G)", 1800);
+  }
+  
+  if (S.wave >= S.maxUnlockedStage) {
+   S.maxUnlockedStage = S.wave + 1;
+  }
+  saveGame(true);
+  updateUI();
+ }
+}
+
+function enemyUpdate(dt) {
+ for (let e of S.E) {
+  if (!e.alive) continue;
+  
+  if (e.kind === "cavalry") {
+   if (e.charge > 0) {
+    e.charge = Math.max(0, e.charge - dt * S.speed);
+    e.inv = Math.max(0, e.inv - dt * S.speed);
+   } else {
+    e.chargeCd = Math.max(0, e.chargeCd - dt * S.speed);
+    if (e.chargeCd <= 0 && e.dist >= CELL * 4) {
+     e.dist = 0;
+     e.charge = 1500;
+     e.inv = 1500;
+     e.chargeCd = 3500;
+    }
+   }
+  }
+
+  if (e.kind === "warship") {
+   e.warshipCd -= dt * S.speed;
+   if (e.warshipCd <= 0) {
+    e.warshipCd = 2500;
+    ["archer", "knight", "cavalry"].forEach(kind => {
+     spawnEnemy(kind, { x: e.x + (Math.random() * 24 - 12), y: e.y + (Math.random() * 24 - 12), q: e.q });
+    });
+    S.FX.push({ x: e.x, y: e.y, r: 45, life: 400, color: "rgba(59, 130, 246, 0.6)" });
+   }
+  }
+
+  if (e.isBoss) {
+   if (e.shieldActive > 0) {
+    e.shieldActive = Math.max(0, e.shieldActive - dt * S.speed);
+   } else {
+    e.shieldCd -= dt * S.speed;
+    if (e.shieldCd <= 0) {
+     e.shieldActive = 2000;
+     e.shieldCd = 5000;
+    }
+   }
+  }
+
+  if (e.kind === "chariot") {
+   e.chariotCd -= dt * S.speed;
+   if (e.chariotCd <= 0) {
+    e.chariotCd = 3500;
+    for (let t of S.T) {
+     if (dist(e, t) <= 150) {
+      t.stun = 2500;
+      S.FX.push({ x: t.x, y: t.y, r: 25, life: 400, color: "rgba(255,230,0,0.8)" });
+     }
+    }
+    S.FX.push({ x: e.x, y: e.y, r: 150, life: 500, color: "rgba(255,200,0,0.3)" });
+   }
+  }
+  
+  e.flash = Math.max(0, e.flash - dt * S.speed);
+  let charging = e.kind === "cavalry" && e.charge > 0;
+  let speedMultiplier = charging ? 2.3 : (e.kind === "ram" ? 1.3 : e.kind === "airship" ? 1.4 : e.kind === "chariot" ? 1.35 : 1);
+  let move = e.sp * speedMultiplier * (dt / 16.6667) * S.speed;
+  e.q += move;
+  e.dist += move;
+  let p = posAt(e.q);
+  e.x = p.x;
+  e.y = p.y;
+  
+  if (e.q >= plen - 8) {
+   e.alive = false;
+   if (e.isBoss) {
+    S.hp = 0;
+    S.over = true;
+    S.run = false;
+    S.isRetry = true;
+    showMsg("💀 맨손 거인이 아군 성에 다다라 함락되었습니다!", 4500);
+    updateUI();
+   } else {
+    S.hp -= e.dmg;
+    if (S.hp <= 0) {
+     S.over = true;
+     S.run = false;
+     S.isRetry = true;
+     showMsg("💀 아군 성 함락! 패배했습니다.", 4500);
+     updateUI();
+    }
+   }
+  }
+ }
+ S.E = S.E.filter(e => e.alive);
+}
+
+function canPlace(px, py) {
+ if (px < 20 || px > W - 20 || py < 20 || py > H - 20) return false;
+ if (dist({x: px, y: py}, enemyCastle) < banR) return false;
+ for (let i = 0; i < fixedPath.length - 1; i++) {
+  let a = fixedPath[i], b = fixedPath[i+1], vx = b.x - a.x, vy = b.y - a.y, L = vx * vx + vy * vy;
+  let t = Math.max(0, Math.min(1, ((px - a.x) * vx + (py - a.y) * vy) / L));
+  if (Math.hypot(px - (a.x + vx * t), py - (a.y + vy * t)) < 47) return false;
+ }
+ for (let t of S.T) {
+  if (dist({x: px, y: py}, t) < 52) return false;
+ }
+ return true;
+}
+
+function upgradeTower(t) {
+ let z = towersData[t.type];
+ let maxLv = getMaxTowerLevel();
+ if (t.lv >= maxLv) {
+  if (maxLv === 8) {
+   showMsg("🔒 15스테이지 클리어 전에는 최대 8레벨까지만 강화할 수 있습니다.");
+  } else {
+   showMsg("🔒 최대 레벨(Lv.12)에 도달했습니다.");
+  }
+  return;
+ }
+ let cost = Math.floor(z.cost * (.85 + t.lv * .55));
+ if (S.gold < cost) {
+  showMsg("💰 업그레이드에 " + cost + "G가 필요합니다.");
+  return;
+ }
+ S.gold -= cost;
+ t.lv++;
+ showMsg("⬆️ " + z.name + " Lv." + t.lv + " 승급!");
+ saveGame(true);
+ updateUI();
+}
+
+function removeTower(i) {
+ let t = S.T[i], z = towersData[t.type];
+ let invest = z.cost;
+ for (let lv = 1; lv < t.lv; lv++) invest += Math.floor(z.cost * (.85 + lv * .55));
+ let refund = Math.floor(invest * .8);
+ S.gold += refund;
+ S.T.splice(i, 1);
+ showMsg("🗑 " + z.name + " 제거 (" + refund + "G 환급)");
+ saveGame(true);
+ updateUI();
+}
+
+function getTarget(t) {
+ let z = towersData[t.type];
+ let range = z.range;
+ let minRange = z.minRange || 0;
+ let best = null, bd = 1e9;
+ for (let e of S.E) {
+  if (e.alive) {
+   let q = dist(t, e);
+   if (q <= range && q >= minRange && q < bd) { bd = q; best = e; }
+  }
+ }
+ return best;
+}
+
+function towerUpdate(dt) {
+ const legacyTowers = S.T.filter(t => t.type === "legacy" && t.stun <= 0);
+ 
+ for (let t of S.T) {
+  t.isRaged = false;
+  for (let lt of legacyTowers) {
+   if (lt !== t && dist(lt, t) <= (towersData.legacy.buffRange || 220)) {
+    t.isRaged = true;
+    break;
+   }
+  }
+
+  if (t.stun > 0) {
+   t.stun = Math.max(0, t.stun - dt * S.speed);
+   continue;
+  }
+
+  let effectiveDt = dt * (t.isRaged ? 1.4 : 1.0);
+  t.cd -= effectiveDt * S.speed;
+  if (t.cd > 0) continue;
+
+  let z = towersData[t.type];
+
+  if (t.type === "mythic") {
+   let targets = S.E.filter(e => e.alive && dist(t, e) <= z.range);
+   if (targets.length > 0) {
+    let dmgMultiplier = (1 + .32 * (t.lv - 1)) * (t.isRaged ? 1.25 : 1.0);
+    let baseDmg = z.dmg * dmgMultiplier;
+    
+    for (let e of targets) {
+     hitEnemy({ damage: baseDmg, splash: 0 }, e);
+    }
+    
+    S.FX.push({ x: t.x, y: t.y, r: z.range, life: 350, color: "rgba(245, 158, 11, 0.45)", ring: true });
+    S.FX.push({ x: t.x, y: t.y, r: z.range * 0.6, life: 250, color: "rgba(239, 68, 68, 0.6)", ring: true });
+    
+    t.cd = z.rate * (1 - .08 * Math.min(6, t.lv - 1));
+   }
+   continue;
+  }
+
+  let e = getTarget(t);
+  if (!e) continue;
+
+  let dmgMultiplier = (1 + .32 * (t.lv - 1)) * (t.isRaged ? 1.25 : 1.0);
+  S.P.push({
+   x: t.x, y: t.y, target: e, type: t.type,
+   spd: z.bs, damage: z.dmg * dmgMultiplier, splash: z.splash || 0
+  });
+
+  t.cd = z.rate * (1 - .08 * Math.min(6, t.lv - 1));
+ }
+}
+
+function onEnemyDeath(e) {
+ e.alive = false;
+ const isReplayOrRetry = isStageCleared(S.wave) || S.isRetry;
+ const goldMultiplier = isReplayOrRetry ? 0.6 : 1.0;
+ 
+ S.gold += Math.floor(e.reward * goldMultiplier);
+ S.kills++;
+ 
+ if (e.isBoss) showMsg("💥 거대 맨손 보스 격파!! (💰 +350G)", 2500);
+
+ if (e.kind === "ram") {
+  showMsg("🛡️ 공성 추 파괴! 레이피어 기사 2 출격!", 1200);
+  spawnEnemy("knight", { x: e.x - 10, y: e.y, q: e.q });
+  spawnEnemy("knight", { x: e.x + 10, y: e.y, q: e.q });
+ } else if (e.kind === "airship") {
+  showMsg("🪂 비행정 추락! 궁수 4 낙하!", 1200);
+  for (let i = 0; i < 4; i++) {
+   spawnEnemy("archer", { x: e.x + (i - 1.5) * 12, y: e.y + (i % 2 === 0 ? 8 : -8), q: e.q });
+  }
+ }
+ updateUI();
+}
+
+function hitEnemy(p, e) {
+ if (!e.alive || e.inv > 0) return;
+ 
+ let finalDmg = p.damage;
+ if (e.isBoss && e.shieldActive > 0) {
+  finalDmg *= 0.9;
+ }
+
+ e.hp -= finalDmg;
+ e.flash = 80;
+ 
+ if (p.splash) {
+  for (let q of S.E) {
+   if (q !== e && q.alive && q.inv <= 0 && dist(q, e) <= p.splash) {
+    let splashDmg = p.damage * .55;
+    if (q.isBoss && q.shieldActive > 0) splashDmg *= 0.9;
+    q.hp -= splashDmg;
+    if (q.hp <= 0) onEnemyDeath(q);
+   }
+  }
+ }
+ if (e.hp <= 0) {
+  onEnemyDeath(e);
+ }
+}
+
+function projUpdate(dt) {
+ let nextP = [];
+ for (let p of S.P) {
+  if (!p.target || !p.target.alive) continue;
+  let dx = p.target.x - p.x, dy = p.target.y - p.y;
+  let L = Math.hypot(dx, dy);
+  let step = p.spd * dt / 1000 * S.speed;
+  if (L <= step + 7) {
+   hitEnemy(p, p.target);
+  } else {
+   p.x += dx / L * step;
+   p.y += dy / L * step;
+   nextP.push(p);
+  }
+ }
+ S.P = nextP;
+ 
+ S.FX = S.FX.filter(f => {
+  f.life -= dt * S.speed;
+  return f.life > 0;
+ });
+}
+
+function applyFreeLevelUp(towerType) {
+ const maxLv = getMaxTowerLevel();
+ const placedTowers = S.T.filter(t => t.type === towerType);
+ 
+ let targetTower = placedTowers.find(t => t.lv < maxLv);
+ if (targetTower) {
+  targetTower.lv++;
+  S.baseLv[towerType] = Math.max(S.baseLv[towerType], targetTower.lv);
+  return { success: true, newLv: targetTower.lv, mode: "PLACED" };
+ }
+ 
+ if (S.baseLv[towerType] < maxLv) {
+  S.baseLv[towerType]++;
+  return { success: true, newLv: S.baseLv[towerType], mode: "BASE" };
+ }
+ 
+ return { success: false, reason: "MAX_LEVEL" };
+}
+
+function doGacha(count) {
+ const costPerDraw = getGachaCost();
+ const totalCost = costPerDraw * count;
+ 
+ if (S.gold < totalCost) {
+  showMsg("💰 골드가 부족합니다! (" + totalCost + "G 필요)");
+  return;
+ }
+ 
+ S.gold -= totalCost;
+ gachaResults.innerHTML = "";
+ let refundTotal = 0;
+ 
+ for (let i = 0; i < count; i++) {
+  const rand = Math.random() * 100;
+  let resCard = document.createElement("div");
+  let cardClass = "gacha-card-result";
+  let title = "";
+  let badge = "";
+  let desc = "";
+  let isRefund = false;
+  let refundAmt = 0;
+  
+  if (rand < 2.5) {
+   if (!S.unlock.legacy) {
+    S.unlock.legacy = true;
+    cardClass += " legacy";
+    badge = "<span class='badge rarity-legacy'>레거시</span>";
+    title = "🔮 고대 마법탑";
+    desc = "✨ 신규 레거시 성탑 해금!";
+   } else {
+    let upRes = applyFreeLevelUp("legacy");
+    if (upRes.success) {
+     cardClass += " legacy";
+     badge = "<span class='badge rarity-legacy'>레거시</span>";
+     title = "🔮 고대 마법탑";
+     desc = upRes.mode === "PLACED" ? "⬆️ 배치 타워 강화 (Lv." + upRes.newLv + ")" : "⬆️ 기본 레벨 상승 (Lv." + upRes.newLv + ")";
+    } else {
+     isRefund = true;
+     refundAmt = 500;
+     cardClass += " legacy";
+     badge = "<span class='badge rarity-legacy'>레거시</span>";
+     title = "🔮 고대 마법탑";
+     desc = "⚠️ 최종 만렙 보상 환급";
+    }
+   }
+  } else if (rand < 7.0) {
+   if (!S.unlock.mythic) {
+    S.unlock.mythic = true;
+    cardClass += " mythic";
+    badge = "<span class='badge rarity-mythic'>신화</span>";
+    title = "🐉 드래곤 성탑";
+    desc = "✨ 신규 신화 성탑 해금!";
+   } else {
+    let upRes = applyFreeLevelUp("mythic");
+    if (upRes.success) {
+     cardClass += " mythic";
+     badge = "<span class='badge rarity-mythic'>신화</span>";
+     title = "🐉 드래곤 성탑";
+     desc = upRes.mode === "PLACED" ? "⬆️ 배치 타워 강화 (Lv." + upRes.newLv + ")" : "⬆️ 기본 레벨 상승 (Lv." + upRes.newLv + ")";
+    } else {
+     isRefund = true;
+     refundAmt = 350;
+     cardClass += " mythic";
+     badge = "<span class='badge rarity-mythic'>신화</span>";
+     title = "🐉 드래곤 성탑";
+     desc = "⚠️ 최종 만렙 보상 환급";
+    }
+   }
+  } else if (rand < 25.0) {
+   let upRes = applyFreeLevelUp("catapult");
+   if (upRes.success) {
+    badge = "<span class='badge rarity-epic'>에픽</span>";
+    title = "☄️️ 투석기";
+    desc = upRes.mode === "PLACED" ? "⬆️ 배치 타워 강화 (Lv." + upRes.newLv + ")" : "⬆️ 기본 레벨 상승 (Lv." + upRes.newLv + ")";
+   } else {
+    isRefund = true;
+    refundAmt = 200;
+    badge = "<span class='badge rarity-epic'>에픽</span>";
+    title = "☄️ 투석기 강화권";
+    desc = "⚠️ 최종 만렙 보상 환급";
+   }
+  } else if (rand < 55.0) {
+   let type = Math.random() < 0.5 ? "cross" : "cannon";
+   let name = type === "cross" ? "석궁 성탑" : "왕실 대포";
+   let upRes = applyFreeLevelUp(type);
+   if (upRes.success) {
+    badge = "<span class='badge rarity-rare'>희귀</span>";
+    title = (type === "cross" ? "🏹 " : "💣 ") + name;
+    desc = upRes.mode === "PLACED" ? "⬆️ 배치 타워 강화 (Lv." + upRes.newLv + ")" : "⬆️ 기본 레벨 상승 (Lv." + upRes.newLv + ")";
+   } else {
+    isRefund = true;
+    refundAmt = 100;
+    badge = "<span class='badge rarity-rare'>희귀</span>";
+    title = name + " 강화권";
+    desc = "⚠️ 최종 만렙 보상 환급";
+   }
+  } else if (rand < 80.0) {
+   let upRes = applyFreeLevelUp("basic");
+   if (upRes.success) {
+    badge = "<span class='badge rarity-common'>커먼</span>";
+    title = "🏰 왕국 성탑";
+    desc = upRes.mode === "PLACED" ? "⬆️ 배치 타워 강화 (Lv." + upRes.newLv + ")" : "⬆️ 기본 레벨 상승 (Lv." + upRes.newLv + ")";
+   } else {
+    isRefund = true;
+    refundAmt = 50;
+    badge = "<span class='badge rarity-common'>커먼</span>";
+    title = "왕국 성탑 강화권";
+    desc = "⚠️ 최종 만렙 보상 환급";
+   }
+  } else {
+   let goldWon = Math.floor(costPerDraw * (0.15 + Math.random() * 0.25));
+   badge = "<span class='badge rarity-common'>골드</span>";
+   title = "💰 위로의 골드 상자";
+   desc = "+" + goldWon + "G 소량 획득";
+   S.gold += goldWon;
+  }
+
+  if (isRefund) {
+   S.gold += refundAmt;
+   refundTotal += refundAmt;
+   desc += `<br><span class="refund-tag">+${refundAmt}G 환급</span>`;
+  }
+
+  resCard.className = cardClass;
+  resCard.innerHTML = `
+   <div>${badge}</div>
+   <div style="font-weight:bold;font-size:13px;margin-top:4px">${title}</div>
+   <div style="font-size:11px;color:#fde68a;margin-top:2px">${desc}</div>
+  `;
+  gachaResults.appendChild(resCard);
+ }
+
+ if (refundTotal > 0) {
+  showMsg("🔮 소환 완료! 만렙 환급으로 💰 +" + refundTotal + "G를 반환받았습니다.");
+ } else {
+  showMsg("🔮 소환을 완료했습니다!");
+ }
+
+ saveGame(true);
+ updateUI();
+}
+
+function drawCastle(q, isEnemy) {
+ let X = q.x, Y = q.y;
+ ctx.save();
+ ctx.strokeStyle = "#222"; ctx.lineWidth = 4;
+ ctx.beginPath(); ctx.moveTo(X, Y - 102); ctx.lineTo(X, Y - 150); ctx.stroke();
+ 
+ ctx.fillStyle = isEnemy ? "#b32929" : "#2474b9";
+ ctx.beginPath(); ctx.moveTo(X, Y - 149); ctx.lineTo(X + 52, Y - 135); ctx.lineTo(X, Y - 120); ctx.closePath(); ctx.fill();
+ 
+ ctx.fillStyle = isEnemy ? "#592020" : "#244c70"; ctx.fillRect(X - 50, Y - 70, 100, 140);
+ ctx.fillStyle = isEnemy ? "#823838" : "#37799e"; ctx.fillRect(X - 31, Y - 96, 62, 192);
+ ctx.fillStyle = isEnemy ? "#a34a4a" : "#5594b5";
+ for (let i = -52; i <= 32; i += 21) {
+  ctx.fillRect(X + i, Y - 84, 15, 21);
+  ctx.fillRect(X + i, Y + 63, 15, 21);
+ }
+ ctx.fillStyle = "#151515"; ctx.fillRect(X - 21, Y + 27, 42, 43);
+ ctx.beginPath(); ctx.arc(X, Y + 27, 21, Math.PI, 0); ctx.fill();
+ 
+ ctx.fillStyle = isEnemy ? "#ffd0d0" : "#d8f1ff"; ctx.font = "bold 26px Arial"; ctx.textAlign = "center";
+ ctx.fillText(isEnemy ? "☠" : "♜", X, Y - 4);
+ ctx.fillStyle = "#000c"; ctx.fillRect(X - 72, Y + 103, 144, 25);
+ ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial";
+ ctx.fillText(isEnemy ? "적군 성" : "아군 성", X, Y + 121);
+ ctx.restore();
+}
+
+function drawPath() {
+ ctx.save();
+ ctx.lineCap = "round"; ctx.lineJoin = "round";
+ ctx.strokeStyle = "#92734b"; ctx.lineWidth = 58;
+ ctx.beginPath(); ctx.moveTo(fixedPath[0].x, fixedPath[0].y);
+ for (let i = 1; i < fixedPath.length; i++) ctx.lineTo(fixedPath[i].x, fixedPath[i].y);
+ ctx.stroke();
+ ctx.strokeStyle = "#c8a970"; ctx.lineWidth = 46; ctx.stroke();
+ ctx.restore();
+}
+
+function drawNoBuildZone() {
+ ctx.save();
+ ctx.fillStyle = "rgba(210, 30, 30, 0.18)";
+ ctx.strokeStyle = "#e22"; ctx.lineWidth = 4;
+ ctx.beginPath(); ctx.arc(enemyCastle.x, enemyCastle.y, banR, 0, Math.PI * 2);
+ ctx.fill(); ctx.stroke();
+ 
+ ctx.setLineDash([10, 8]); ctx.lineWidth = 2;
+ ctx.beginPath(); ctx.arc(enemyCastle.x, enemyCastle.y, banR - 8, 0, Math.PI * 2); ctx.stroke();
+ ctx.setLineDash([]);
+ 
+ ctx.fillStyle = "#7c0000dd"; ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
+ ctx.fillText("🚫 설치 불가 · 적군 성 반경 10칸", enemyCastle.x + 140, enemyCastle.y + banR - 30);
+ ctx.restore();
+}
+
+function renderTowerGraphic(cCtx, type, x, y) {
+ cCtx.save();
+ cCtx.fillStyle = "#3c3025"; cCtx.fillRect(x - 21, y + 12, 42, 10);
+ if (type === "basic") {
+  cCtx.fillStyle = "#62686b"; cCtx.fillRect(x - 17, y - 21, 34, 38);
+  cCtx.fillStyle = "#858b8d"; cCtx.fillRect(x - 12, y - 32, 24, 14);
+  cCtx.fillStyle = "#292d30"; cCtx.fillRect(x - 6, y - 44, 12, 17);
+ } else if (type === "cross") {
+  cCtx.fillStyle = "#555"; cCtx.fillRect(x - 19, y - 18, 38, 34);
+  cCtx.fillStyle = "#aaa"; cCtx.fillRect(x - 14, y - 30, 28, 13);
+  cCtx.strokeStyle = "#eee"; cCtx.lineWidth = 3;
+  cCtx.beginPath(); cCtx.moveTo(x - 29, y - 5); cCtx.lineTo(x + 29, y - 5); cCtx.stroke();
+  cCtx.fillStyle = "#222"; cCtx.fillRect(x - 4, y - 27, 8, 27);
+ } else if (type === "cannon") {
+  cCtx.fillStyle = "#4b4b4b"; cCtx.fillRect(x - 22, y - 18, 44, 35);
+  cCtx.fillStyle = "#777"; cCtx.beginPath(); cCtx.arc(x, y - 17, 17, 0, Math.PI * 2); cCtx.fill();
+  cCtx.fillStyle = "#222"; cCtx.beginPath(); cCtx.arc(x, y - 17, 8, 0, Math.PI * 2); cCtx.fill();
+  cCtx.fillStyle = "#aaa"; cCtx.fillRect(x - 5, y - 37, 10, 21);
+ } else if (type === "catapult") {
+  cCtx.fillStyle = "#6e4d28"; cCtx.fillRect(x - 22, y - 16, 44, 32);
+  cCtx.fillStyle = "#3d2712"; cCtx.fillRect(x - 18, y - 24, 8, 16); cCtx.fillRect(x + 10, y - 24, 8, 16);
+  cCtx.strokeStyle = "#2b1a09"; cCtx.lineWidth = 5;
+  cCtx.beginPath(); cCtx.moveTo(x - 20, y + 4); cCtx.lineTo(x + 22, y - 34); cCtx.stroke();
+  cCtx.fillStyle = "#666"; cCtx.beginPath(); cCtx.arc(x + 22, y - 34, 7, 0, Math.PI * 2); cCtx.fill();
+ } else if (type === "mythic") {
+  cCtx.fillStyle = "#78350f"; cCtx.fillRect(x - 22, y - 22, 44, 40);
+  cCtx.fillStyle = "#b91c1c"; cCtx.fillRect(x - 16, y - 34, 32, 16);
+  cCtx.fillStyle = "#f59e0b"; cCtx.beginPath(); cCtx.arc(x, y - 26, 10, 0, Math.PI * 2); cCtx.fill();
+  cCtx.fillStyle = "#dc2626"; cCtx.fillRect(x - 4, y - 48, 8, 20);
+ } else if (type === "legacy") {
+  cCtx.fillStyle = "#312e81"; cCtx.fillRect(x - 20, y - 24, 40, 42);
+  cCtx.fillStyle = "#6d28d9"; cCtx.fillRect(x - 14, y - 38, 28, 18);
+  cCtx.fillStyle = "#06b6d4"; cCtx.beginPath(); cCtx.arc(x, y - 38, 8, 0, Math.PI * 2); cCtx.fill();
+  cCtx.strokeStyle = "#67e8f9"; cCtx.lineWidth = 3; cCtx.stroke();
+ }
+ cCtx.restore();
+}
+
+function drawTower(t) {
+ let z = towersData[t.type];
+ ctx.save();
+ 
+ if (t.type === "legacy") {
+  ctx.strokeStyle = "rgba(168, 85, 247, 0.35)";
+  ctx.lineWidth = 3;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath(); ctx.arc(t.x, t.y, z.buffRange || 220, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+ }
+
+ if (S.sel === t.type && !S.remove) {
+  ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(t.x, t.y, z.range, 0, Math.PI * 2); ctx.stroke();
+  
+  if (z.minRange > 0) {
+   ctx.strokeStyle = "rgba(255,80,80,0.45)"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+   ctx.beginPath(); ctx.arc(t.x, t.y, z.minRange, 0, Math.PI * 2); ctx.stroke();
+   ctx.setLineDash([]);
+  }
+ }
+ if (S.remove) {
+  ctx.strokeStyle = "#f55"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(t.x, t.y, 28, 0, Math.PI * 2); ctx.stroke();
+ }
+ 
+ renderTowerGraphic(ctx, t.type, t.x, t.y);
+ 
+ if (t.stun > 0) {
+  ctx.fillStyle = "rgba(255,230,0,0.85)"; ctx.font = "bold 18px Arial"; ctx.textAlign = "center";
+  ctx.fillText("⚡ 마비", t.x, t.y - 45);
+ }
+
+ if (t.isRaged) {
+  ctx.fillStyle = "#ef4444"; ctx.font = "bold 11px Arial"; ctx.textAlign = "center";
+  ctx.fillText("🔥분노", t.x, t.y - 40);
+ }
+ 
+ let maxLv = getMaxTowerLevel();
+ ctx.fillStyle = "#111"; ctx.fillRect(t.x - 18, t.y + 24, 36, 17);
+ ctx.fillStyle = t.lv >= maxLv ? "#ffd700" : "#fff"; ctx.font = "bold 11px Arial"; ctx.textAlign = "center";
+ ctx.fillText((t.lv >= maxLv ? "MAX " : "Lv.") + t.lv, t.x, t.y + 36);
+ ctx.restore();
+}
+
+// Render enemy visuals with concept-matching weapons
+function renderEnemyGraphic(cCtx, kind, x, y, flash = 0) {
+ cCtx.save();
+ cCtx.translate(x, y);
+ 
+ if (kind === "giant") {
+  // Giant (Boss): Bare fists / muscular arms
+  cCtx.fillStyle = flash > 0 ? "#fff" : "#8d5b42"; cCtx.fillRect(-22, -26, 44, 52);
+  cCtx.fillStyle = "#5c3a28"; cCtx.fillRect(-18, -44, 36, 22);
+  cCtx.fillStyle = "#ff0000"; cCtx.fillRect(-9, -38, 6, 6); cCtx.fillRect(3, -38, 6, 6);
+  
+  // Bare hands (large muscular fists)
+  cCtx.fillStyle = "#a66a4f";
+  cCtx.beginPath(); cCtx.arc(-28, 2, 10, 0, Math.PI * 2); cCtx.fill(); // Left bare fist
+  cCtx.beginPath(); cCtx.arc(28, 2, 10, 0, Math.PI * 2); cCtx.fill();  // Right bare fist
+  cCtx.strokeStyle = "#4d2c1d"; cCtx.lineWidth = 2;
+  cCtx.strokeRect(-32, -3, 8, 10); cCtx.strokeRect(24, -3, 8, 10);
+ } else if (kind === "warship") {
+  // Warship (Transport): Vehicle / No hand-held weapon
+  cCtx.fillStyle = flash > 0 ? "#fff" : "#1e3a8a"; cCtx.fillRect(-22, -14, 44, 26);
+  cCtx.fillStyle = "#3b82f6"; cCtx.fillRect(-16, -20, 32, 10);
+  cCtx.fillStyle = "#ef4444"; cCtx.beginPath(); cCtx.arc(0, -14, 4, 0, Math.PI * 2); cCtx.fill();
+ } else if (kind === "ram") {
+  // Siege Ram (Transport): Vehicle / No hand-held weapon
+  cCtx.fillStyle = "#5c3a21"; cCtx.fillRect(-18, -10, 36, 20);
+  cCtx.fillStyle = "#2d1a0e"; cCtx.fillRect(-22, -6, 44, 12);
+  cCtx.fillStyle = "#888"; cCtx.fillRect(16, -8, 8, 16);
+ } else if (kind === "airship") {
+  // Airship (Transport): Vehicle / No hand-held weapon
+  cCtx.fillStyle = "#2b6cb0"; cCtx.beginPath(); cCtx.ellipse(0, -8, 24, 12, 0, 0, Math.PI * 2); cCtx.fill();
+  cCtx.fillStyle = "#4a5568"; cCtx.fillRect(-10, 0, 20, 8);
+ } else if (kind === "chariot") {
+  // Chariot (Transport): Vehicle / No hand-held weapon
+  cCtx.fillStyle = "#b45309"; cCtx.fillRect(-16, -12, 32, 20);
+  cCtx.fillStyle = "#78350f"; cCtx.fillRect(-18, 4, 36, 6);
+ } else if (kind === "archer") {
+  // Archer: Bow & Arrow weapon
+  cCtx.fillStyle = flash > 0 ? "#fff" : "#714839";
+  cCtx.fillRect(-10, -12, 20, 24);
+  cCtx.fillStyle = "#70402f"; cCtx.beginPath(); cCtx.arc(0, -18, 8, 0, Math.PI * 2); cCtx.fill();
+  
+  // Wooden Bow
+  cCtx.strokeStyle = "#8b4513"; cCtx.lineWidth = 3;
+  cCtx.beginPath(); cCtx.arc(-14, -2, 16, Math.PI * 0.7, Math.PI * 1.3); cCtx.stroke();
+  cCtx.strokeStyle = "#e2e8f0"; cCtx.lineWidth = 1; // Bowstring
+  cCtx.beginPath(); cCtx.moveTo(-19, -15); cCtx.lineTo(-19, 11); cCtx.stroke();
+  
+  // Ready Arrow
+  cCtx.strokeStyle = "#d69e2e"; cCtx.lineWidth = 2;
+  cCtx.beginPath(); cCtx.moveTo(-19, -2); cCtx.lineTo(6, -2); cCtx.stroke();
+  cCtx.fillStyle = "#e2e8f0"; // Arrowhead
+  cCtx.beginPath(); cCtx.moveTo(6, -5); cCtx.lineTo(11, -2); cCtx.lineTo(6, 1); cCtx.closePath(); cCtx.fill();
+ } else if (kind === "knight") {
+  // Knight: Rapier weapon
+  cCtx.fillStyle = flash > 0 ? "#fff" : "#59616a";
+  cCtx.fillRect(-10, -12, 20, 24);
+  cCtx.fillStyle = "#888"; cCtx.fillRect(-8, -20, 16, 10);
+  
+  // Steel Rapier Sword
+  cCtx.strokeStyle = "#e2e8f0"; cCtx.lineWidth = 2; // Sleek thin rapier blade
+  cCtx.beginPath(); cCtx.moveTo(10, 0); cCtx.lineTo(26, -6); cCtx.stroke();
+  cCtx.fillStyle = "#f59e0b"; // Cup hilt
+  cCtx.beginPath(); cCtx.arc(10, 0, 4, 0, Math.PI * 2); cCtx.fill();
+ } else if (kind === "cavalry") {
+  // Cavalry: Long Lance spear
+  cCtx.fillStyle = flash > 0 ? "#fff" : "#74492e";
+  cCtx.fillRect(-10, -12, 20, 24);
+  cCtx.fillStyle = "#71472d"; cCtx.fillRect(-20, 1, 28, 12); // Horse
+  
+  // Mounted Lance Spear
+  cCtx.strokeStyle = "#78350f"; cCtx.lineWidth = 3; // Wooden shaft
+  cCtx.beginPath(); cCtx.moveTo(-8, -10); cCtx.lineTo(24, -18); cCtx.stroke();
+  cCtx.fillStyle = "#e2e8f0"; // Spearhead
+  cCtx.beginPath(); cCtx.moveTo(24, -21); cCtx.lineTo(31, -18); cCtx.lineTo(24, -15); cCtx.closePath(); cCtx.fill();
+  cCtx.fillStyle = "#ef4444"; // Banner flag on lance
+  cCtx.beginPath(); cCtx.moveTo(14, -16); cCtx.lineTo(21, -12); cCtx.lineTo(14, -12); cCtx.closePath(); cCtx.fill();
+ }
+ cCtx.restore();
+}
+
+function drawEnemy(e) {
+ let b = enemiesData[e.kind], label = b.name;
+ ctx.save();
+ ctx.translate(e.x, e.y);
+ 
+ let col = e.kind === "giant" ? "#d9480f" : e.kind === "warship" ? "#2563eb" : e.kind === "ram" ? "#a0522d" : e.kind === "airship" ? "#1e90ff" : e.kind === "chariot" ? "#d97706" : e.kind === "archer" ? "#4d8a4d" : e.kind === "knight" ? "#66717d" : "#9a5d2e";
+ ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
+ let tw = ctx.measureText(label).width + 22;
+ ctx.fillStyle = "#000e"; ctx.fillRect(-tw / 2, e.isBoss ? -96 : -72, tw, 21);
+ ctx.fillStyle = col; ctx.fillRect(-tw / 2, e.isBoss ? -96 : -72, 5, 21);
+ ctx.fillStyle = "#fff"; ctx.fillText(label, 0, e.isBoss ? -80 : -56);
+ 
+ if (e.kind === "cavalry" && e.charge > 0) {
+  ctx.strokeStyle = "#ffd43b"; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(0, 0, 27, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#ffd43b"; ctx.font = "bold 11px Arial";
+  ctx.fillText("돌진", 0, 43);
+ }
+ if (e.inv > 0) {
+  ctx.strokeStyle = "#8ee7ff"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, 31, 0, Math.PI * 2); ctx.stroke();
+ }
+ 
+ if (e.kind === "giant") {
+  if (e.shieldActive > 0) {
+   ctx.strokeStyle = "rgba(77, 208, 225, 0.85)"; ctx.lineWidth = 6;
+   ctx.fillStyle = "rgba(77, 208, 225, 0.25)";
+   ctx.beginPath(); ctx.arc(0, -20, 52, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+   ctx.fillStyle = "#80deea"; ctx.font = "bold 12px Arial";
+   ctx.fillText("🛡️ 10% 보호막", 0, -82);
+  }
+ }
+ 
+ ctx.restore();
+ renderEnemyGraphic(ctx, e.kind, e.x, e.y, e.flash);
+ 
+ ctx.save();
+ ctx.translate(e.x, e.y);
+ let bw = e.isBoss ? 68 : 42;
+ ctx.fillStyle = "#111"; ctx.fillRect(-bw / 2, e.isBoss ? -70 : -45, bw, e.isBoss ? 10 : 6);
+ ctx.fillStyle = e.isBoss ? "#e03131" : "#65bb5b"; ctx.fillRect(-bw / 2, e.isBoss ? -70 : -45, bw * Math.max(0, e.hp / e.max), e.isBoss ? 10 : 6);
+ ctx.restore();
+}
+
+function drawProjectiles() {
+ for (let p of S.P) {
+  ctx.save();
+  ctx.beginPath();
+  if (p.type === "legacy") {
+   ctx.fillStyle = "#06b6d4"; ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill();
+   ctx.strokeStyle = "#a855f7"; ctx.lineWidth = 2; ctx.stroke();
+  } else if (p.type === "catapult") {
+   ctx.fillStyle = "#4a3525"; ctx.arc(p.x, p.y, 8, 0, Math.PI * 2); ctx.fill();
+   ctx.strokeStyle = "#1a0d05"; ctx.lineWidth = 2; ctx.stroke();
+  } else if (p.type === "cannon") {
+   ctx.fillStyle = "#222"; ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill();
+  } else if (p.type === "cross") {
+   ctx.fillStyle = "#e0e0e0"; ctx.fillRect(p.x - 4, p.y - 2, 8, 4);
+  } else {
+   ctx.fillStyle = "#d4a373"; ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+ }
+}
+
+function drawFX() {
+ for (let f of S.FX) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+  if (f.ring) {
+   ctx.strokeStyle = f.color || "rgba(255,100,50,0.8)";
+   ctx.lineWidth = 4;
+   ctx.stroke();
+  } else {
+   ctx.fillStyle = f.color || "rgba(255,100,50,0.5)";
+   ctx.fill();
+  }
+  ctx.restore();
+ }
+}
+
+function drawPreview() {
+ if (!mousePos) return;
+ const z = towersData[S.sel];
+ const valid = canPlace(mousePos.x, mousePos.y) && 
+               S.T.length < S.totalTowerMax && 
+               getTowerCount(S.sel) < TOWER_LIMITS[S.sel] &&
+               S.gold >= z.cost;
+
+ ctx.save();
+ if (S.remove) {
+  ctx.strokeStyle = "#ff4444"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, 25, 0, Math.PI * 2); ctx.stroke();
+ } else {
+  ctx.fillStyle = valid ? "rgba(46, 204, 113, 0.18)" : "rgba(231, 76, 60, 0.18)";
+  ctx.strokeStyle = valid ? "rgba(46, 204, 113, 0.6)" : "rgba(231, 76, 60, 0.6)";
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, z.range, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  if (z.buffRange) {
+   ctx.strokeStyle = "rgba(168, 85, 247, 0.5)"; ctx.setLineDash([6, 4]);
+   ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, z.buffRange, 0, Math.PI * 2); ctx.stroke();
+   ctx.setLineDash([]);
+  }
+
+  if (z.minRange > 0) {
+   ctx.strokeStyle = "rgba(231, 76, 60, 0.8)"; ctx.setLineDash([4, 4]);
+   ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, z.minRange, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  ctx.fillStyle = valid ? "rgba(46, 204, 113, 0.4)" : "rgba(231, 76, 60, 0.4)";
+  ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, 20, 0, Math.PI * 2); ctx.fill();
+ }
+ ctx.restore();
+}
+
+function render() {
+ ctx.clearRect(0, 0, W, H);
+ drawPath();
+ drawNoBuildZone();
+ drawCastle(enemyCastle, true);
+ drawCastle(ourCastle, false);
+ 
+ for (let t of S.T) drawTower(t);
+ for (let e of S.E) drawEnemy(e);
+ drawProjectiles();
+ drawFX();
+ drawPreview();
+}
+
+function openGacha() {
+ updateGachaUI();
+ gachaModal.classList.add("active");
+}
+
+function closeGacha() {
+ gachaModal.classList.remove("active");
+}
+
+function openCodex() {
+ codexModal.classList.add("active");
+ renderCodexContent();
+}
+
+function closeCodex() {
+ codexModal.classList.remove("active");
+}
+
+// Render Codex content with fixed preview image aspect ratio and scaling to avoid clipping
+function renderCodexContent() {
+ codexBody.innerHTML = "";
+ 
+ if (currentCodexTab === "towers") {
+  tabTowers.classList.add("active");
+  tabEnemies.classList.remove("active");
+  
+  Object.keys(towersData).forEach(key => {
+   const t = towersData[key];
+   const card = document.createElement("div");
+   card.className = "codex-card";
+   
+   let rarityClass = t.rarity === "커먼" ? "rarity-common" : t.rarity === "희귀" ? "rarity-rare" : t.rarity === "에픽" ? "rarity-epic" : t.rarity === "신화" ? "rarity-mythic" : "rarity-legacy";
+   
+   card.innerHTML = `
+    <div class="codex-card-header">
+     <div class="codex-card-title">${t.name}</div>
+     <span class="badge ${rarityClass}">${t.rarity}</span>
+    </div>
+    <div class="codex-preview"><canvas id="cv-${key}" width="160" height="100"></canvas></div>
+    <div class="codex-stats">
+     • <b>설치 비용:</b> ${t.cost}G (제한: ${TOWER_LIMITS[key]}개)<br>
+     • <b>공격력:</b> ${t.dmg} / <b>사거리:</b> ${t.range}${t.minRange ? ` (최소 ${t.minRange})` : ""}<br>
+     • <b>연사 속도:</b> ${(t.rate/1000).toFixed(2)}초마다 1발
+    </div>
+    <div class="codex-desc">${t.desc}</div>
+   `;
+   codexBody.appendChild(card);
+   
+   setTimeout(() => {
+    const cv = document.getElementById(`cv-${key}`);
+    if (cv) {
+     const cCtx = cv.getContext("2d");
+     cCtx.save();
+     cCtx.scale(0.85, 0.85); // Scale down slightly to ensure complete tower fits without clipping
+     renderTowerGraphic(cCtx, key, 94, 72);
+     cCtx.restore();
+    }
+   }, 10);
+  });
+ } else {
+  tabEnemies.classList.add("active");
+  tabTowers.classList.remove("active");
+  
+  Object.keys(enemiesData).forEach(key => {
+   const e = enemiesData[key];
+   const card = document.createElement("div");
+   card.className = "codex-card";
+   
+   card.innerHTML = `
+    <div class="codex-card-header">
+     <div class="codex-card-title">${e.name} ${e.isBoss ? "👑" : ""}</div>
+     <span class="badge ${e.typeBadge}">${e.type}</span>
+    </div>
+    <div class="codex-preview"><canvas id="cv-e-${key}" width="160" height="100"></canvas></div>
+    <div class="codex-stats">
+     • <b>유형:</b> ${e.type}<br>
+     • <b>착용 무기:</b> <span style="color:#b45309;font-weight:bold">${e.weapon}</span><br>
+     • <b>기본 체력:</b> ${e.hp} / <b>이동 속도:</b> ${e.sp.toFixed(2)}<br>
+     • <b>성 피해량:</b> ${e.dmg} / <b>처치 보상:</b> ${e.reward}G
+    </div>
+    <div class="codex-desc">${e.desc}</div>
+   `;
+   codexBody.appendChild(card);
+   
+   setTimeout(() => {
+    const cv = document.getElementById(`cv-e-${key}`);
+    if (cv) {
+     const cCtx = cv.getContext("2d");
+     cCtx.save();
+     cCtx.scale(0.85, 0.85); // Scale down slightly to fit whole enemy without top clipping
+     renderEnemyGraphic(cCtx, key, 94, 60, 0);
+     cCtx.restore();
+    }
+   }, 10);
+  });
+ }
+}
+
+function getCanvasPos(evt) {
+ const rect = c.getBoundingClientRect();
+ const scaleX = W / rect.width;
+ const scaleY = H / rect.height;
+ return {
+  x: (evt.clientX - rect.left) * scaleX,
+  y: (evt.clientY - rect.top) * scaleY
+ };
+}
+
+c.addEventListener("mousemove", (evt) => {
+ mousePos = getCanvasPos(evt);
+});
+
+c.addEventListener("mouseleave", () => {
+ mousePos = null;
+});
+
+c.addEventListener("click", (evt) => {
+ const pos = getCanvasPos(evt);
+ 
+ for (let i = 0; i < S.T.length; i++) {
+  const t = S.T[i];
+  if (dist(pos, t) <= 25) {
+   if (S.remove) {
+    removeTower(i);
+   } else {
+    upgradeTower(t);
+   }
+   return;
+  }
+ }
+ 
+ if (S.remove) {
+  showMsg("타워 위를 클릭하여 제거하세요.");
+  return;
+ }
+ 
+ const z = towersData[S.sel];
+ if (S.T.length >= S.totalTowerMax) {
+  showMsg("🏰 더 이상 타워를 설치할 수 없습니다. (최대 " + S.totalTowerMax + "개)");
+  return;
+ }
+ if (getTowerCount(S.sel) >= TOWER_LIMITS[S.sel]) {
+  showMsg("⚠️ " + z.name + " 설치 제한(" + TOWER_LIMITS[S.sel] + "개)에 도달했습니다.");
+  return;
+ }
+ if (S.gold < z.cost) {
+  showMsg("💰 골드가 부족합니다! (" + z.cost + "G 필요)");
+  return;
+ }
+ if (!canPlace(pos.x, pos.y)) {
+  showMsg("🚫 이곳에는 타워를 설치할 수 없습니다.");
+  return;
+ }
+ 
+ S.gold -= z.cost;
+ const initLv = S.baseLv[S.sel] || 1;
+ S.T.push({ x: pos.x, y: pos.y, type: S.sel, lv: initLv, cd: 0, stun: 0 });
+ showMsg("✨ " + z.name + " (Lv." + initLv + ") 설치 완료!");
+ saveGame(true);
+ updateUI();
+});
+
+// Button Event Handlers
+startBtn.onclick = startWave;
+pauseBtn.onclick = () => { S.pause = !S.pause; updateUI(); };
+speedBtn.onclick = () => { S.speed = S.speed === 1 ? 2 : S.speed === 2 ? 3 : 1; updateUI(); };
+removeBtn.onclick = () => { S.remove = !S.remove; updateUI(); };
+
+bBasic.onclick = () => chooseTower("basic");
+bCross.onclick = () => chooseTower("cross");
+bCannon.onclick = () => chooseTower("cannon");
+bCatapult.onclick = () => chooseTower("catapult");
+bMythic.onclick = () => chooseTower("mythic");
+bLegacy.onclick = () => chooseTower("legacy");
+
+mStartBtn.onclick = () => { switchScreen("game"); };
+mGachaBtn.onclick = openGacha;
+mBookBtn.onclick = openCodex;
+mResetBtn.onclick = () => { resetConfirmModal.classList.add("active"); };
+
+gGachaBtn.onclick = openGacha;
+gBookBtn.onclick = openCodex;
+gMainMenuBtn.onclick = () => { switchScreen("main"); };
+
+closeGachaBtn.onclick = closeGacha;
+draw1Btn.onclick = () => doGacha(1);
+draw10Btn.onclick = () => doGacha(10);
+
+closeCodexBtn.onclick = closeCodex;
+tabTowers.onclick = () => { currentCodexTab = "towers"; renderCodexContent(); };
+tabEnemies.onclick = () => { currentCodexTab = "enemies"; renderCodexContent(); };
+
+confirmResetBtn.onclick = () => {
+ resetConfirmModal.classList.remove("active");
+ resetGame();
+};
+cancelResetBtn.onclick = () => {
+ resetConfirmModal.classList.remove("active");
+};
+
+stageSelect.onchange = (e) => {
+ const val = parseInt(e.target.value);
+ if (S.run) {
+  showMsg("웨이브 진행 중에는 스테이지를 변경할 수 없습니다.");
+  stageSelect.value = S.wave;
+  return;
+ }
+ S.wave = val;
+ updateUI();
+ showMsg("🚩 " + S.wave + "스테이지로 이동했습니다.");
+};
+
+function gameLoop(now) {
+ const dt = Math.min(100, now - S.last);
+ S.last = now;
+ 
+ if (S.mt > 0) {
+  S.mt -= dt;
+  if (S.mt <= 0) msgEl.style.opacity = 0;
+ }
+ 
+ if (S.run && !S.pause && !S.over) {
+  spawnUpdate(dt);
+  enemyUpdate(dt);
+  towerUpdate(dt);
+  projUpdate(dt);
+ }
+ 
+ render();
+ requestAnimationFrame(gameLoop);
+}
+
+window.onload = () => {
+ calcLen();
+ loadGame();
+ updateUI();
+ requestAnimationFrame(gameLoop);
+};
+
+})();
+</script>
+</body>
+</html>
