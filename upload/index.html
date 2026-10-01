@@ -112,7 +112,7 @@
     <label for="desc">한 줄 소개</label>
     <input type="text" id="desc" maxlength="60" placeholder="예: 1부터 100 사이 숫자를 맞혀봐!">
 
-    <label>HTML 파일 * <small>(.html 한 개, 2MB까지)</small></label>
+    <label>HTML 파일 * <small>(.html 한 개, 25MB까지)</small></label>
     <label class="drop" id="drop">
       <input type="file" id="file" accept=".html,.htm,text/html">
       <span id="dropText">📂 여기를 눌러서 파일 고르기<br><small>(또는 파일을 끌어다 놓기)</small></span>
@@ -152,7 +152,7 @@
 <script>
 const OWNER = 'getbetterwithu', REPO = 'ai-club-booth', BRANCH = 'main';
 const TOKEN_KEY = 'booth_gh_token';
-const MAX_BYTES = 2 * 1024 * 1024;
+const MAX_BYTES = 25 * 1024 * 1024;
 const EMOJIS = ['😎', '🤓', '🥳', '🤖', '👾', '🐱', '🐶', '🦊', '🐼', '🐰', '🐯', '🦄', '🐧', '🐸', '🚀', '🎮'];
 
 const $ = id => document.getElementById(id);
@@ -207,7 +207,7 @@ async function takeFile(f) {
   fileBytes = null; $('preview').style.display = 'none'; $('drop').classList.remove('has');
   if (!f) return updateSubmit();
   if (!/\.html?$/i.test(f.name)) { showMsg($('msg'), '❌ .html 파일만 올릴 수 있어요.', 'err'); return updateSubmit(); }
-  if (f.size > MAX_BYTES) { showMsg($('msg'), '❌ 파일이 너무 커요 (2MB까지).', 'err'); return updateSubmit(); }
+  if (f.size > MAX_BYTES) { showMsg($('msg'), '❌ 파일이 너무 커요 (25MB까지).', 'err'); return updateSubmit(); }
   fileBytes = new Uint8Array(await f.arrayBuffer());
   $('dropText').innerHTML = `✅ <b>${escapeHtml(f.name)}</b> (${Math.ceil(f.size / 1024)}KB)<br><small>다른 파일로 바꾸려면 다시 누르기</small>`;
   $('drop').classList.add('has');
