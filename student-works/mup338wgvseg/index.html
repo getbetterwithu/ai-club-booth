@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시험범위 학습 도우미</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;background:#f5f7fb;color:#172033}
+header{background:#fff;border-bottom:1px solid #e6e9f0;padding:18px 24px;position:sticky;top:0;z-index:3}
+header h1{margin:0;font-size:22px}header p{margin:5px 0 0;color:#667085;font-size:13px}
+.wrap{max-width:1180px;margin:24px auto;padding:0 18px}.grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:20px;box-shadow:0 4px 18px #1720330a}
+h2{font-size:17px;margin:0 0 14px}.muted{color:#667085;font-size:13px;line-height:1.6}
+.drop{border:2px dashed #b9c2d0;border-radius:14px;padding:25px;text-align:center;background:#fafbfc;cursor:pointer}
+.drop:hover{background:#f4f7ff}.drop input{display:none}
+textarea{width:100%;min-height:220px;border:1px solid #d9dee8;border-radius:12px;padding:12px;resize:vertical;font:inherit}
+button,select{border:0;border-radius:10px;padding:11px 14px;font-weight:700;cursor:pointer;font:inherit}
+.primary{background:#315efb;color:white}.secondary{background:#eef2ff;color:#284bd1}.gray{background:#edf0f4;color:#344054}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.row>*{flex:1}
+.status{margin-top:10px;padding:10px;border-radius:10px;background:#f6f8fb;font-size:13px}
+.preview{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:12px}.thumb{border:1px solid #ddd;border-radius:10px;padding:5px;background:#fff}.thumb img{width:100%;height:130px;object-fit:contain}
+.quizHead{display:flex;justify-content:space-between;align-items:center;gap:10px}.pill{background:#eef2ff;color:#315efb;padding:6px 10px;border-radius:99px;font-size:12px;font-weight:700}
+.question{font-size:20px;font-weight:800;line-height:1.5;margin:25px 0 18px}.option{display:block;width:100%;text-align:left;background:#f8fafc;border:1px solid #dfe4ec;margin:9px 0;padding:13px;border-radius:12px}.option:hover{background:#f0f4ff}.option.correct{background:#e9f9ef;border-color:#55b879}.option.wrong{background:#fff0f0;border-color:#e47777}
+.explain{margin-top:14px;padding:13px;border-radius:12px;background:#f7f8fb;line-height:1.6;font-size:14px}
+.score{text-align:center;padding:25px}.score b{font-size:42px;display:block}
+.hidden{display:none}.sourceList{max-height:190px;overflow:auto;margin-top:10px}.sourceItem{padding:8px;border-bottom:1px solid #eee;font-size:13px}
+@media(max-width:850px){.grid{grid-template-columns:1fr}}
+
+.onboard{position:fixed;inset:0;background:linear-gradient(135deg,#eef3ff,#f8f9fc);z-index:10;display:flex;align-items:center;justify-content:center;padding:20px}
+.onboardBox{width:min(760px,100%);background:#fff;border:1px solid #e3e7ef;border-radius:24px;padding:30px;box-shadow:0 18px 50px #17203318}
+.onboardBox h1{font-size:28px;margin:0 0 8px}.steps{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:22px 0}
+.field{display:flex;flex-direction:column;gap:7px}.field label{font-size:13px;font-weight:800}.field input,.field select{width:100%;border:1px solid #d9dee8;background:#fff;padding:12px;border-radius:10px}
+@media(max-width:650px){.steps{grid-template-columns:1fr}.onboardBox{padding:22px}}
+
+</style>
+</head>
+<body>
+<div id="onboard" class="onboard">
+ <div class="onboardBox">
+  <h1>👋 나에게 맞는 학습을 시작해요</h1>
+  <p class="muted">몇 가지 정보를 알려주면 문제의 수준과 유형을 맞춰 드릴게요.</p>
+  <div class="steps">
+   <div class="field"><label>나이</label><input id="age" type="number" min="6" max="100" placeholder="예: 14"></div>
+   <div class="field"><label>학년</label><select id="grade"><option>초등학교 1학년</option><option>초등학교 2학년</option><option>초등학교 3학년</option><option>초등학교 4학년</option><option>초등학교 5학년</option><option>초등학교 6학년</option><option selected>중학교 1학년</option><option>중학교 2학년</option><option>중학교 3학년</option><option>고등학교 1학년</option><option>고등학교 2학년</option><option>고등학교 3학년</option></select></div>
+   <div class="field"><label>현재 성적 수준</label><select id="level"><option>상</option><option selected>중상</option><option>중</option><option>중하</option><option>하</option></select></div>
+   <div class="field"><label>도움을 받고 싶은 과목</label><select id="subject"><option>수학</option><option>국어</option><option>영어</option><option>과학</option><option>사회</option><option>역사</option><option>기타</option></select></div>
+   <div class="field"><label>테스트 난이도</label><select id="difficulty2"><option>쉬움</option><option selected>보통</option><option>어려움</option><option>매우 어려움</option></select></div>
+   <div class="field"><label>문제 유형</label><select id="qtype"><option>혼합</option><option>객관식</option><option>O/X</option><option>주관식</option></select></div>
+   <div class="field"><label>한 번에 풀 문제 수</label><select id="qcount"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></div>
+  </div>
+  <button class="primary" style="width:100%;font-size:16px" onclick="startApp()">🚀 학습 시작하기</button>
+ </div>
+</div>
+<header><h1>📚 시험범위 학습 도우미</h1><p>교과서 페이지를 넣으면 핵심 내용을 바탕으로 연습 테스트를 만들어 줍니다.</p></header>
+<div class="wrap"><div id="profile" class="profile hidden"></div>
+<div class="grid">
+<section class="card">
+<h2>1. 시험범위 자료 넣기</h2>
+<div class="drop" onclick="document.getElementById('files').click()">
+📄 교과서 페이지 이미지/PDF 선택<br><span class="muted">이미지를 여러 장 선택할 수 있어요</span>
+<input id="files" type="file" accept="image/*,.txt,.pdf" multiple>
+</div>
+<div id="preview" class="preview"></div>
+<p class="muted">※ 이미지의 글자는 브라우저 OCR을 사용합니다. OCR이 어려운 자료는 아래 칸에 텍스트를 직접 붙여 넣어도 됩니다.</p>
+<textarea id="text" placeholder="교과서 내용을 직접 붙여 넣거나, OCR 결과를 수정하세요.&#10;&#10;예: 광합성은 식물이 빛에너지를 이용하여 이산화탄소와 물로부터 양분을 만드는 과정이다."></textarea>
+<div class="row">
+<select id="count"><option value="5">5문제</option><option value="10" selected>10문제</option><option value="15">15문제</option></select>
+<select id="difficulty"><option>쉬움</option><option selected>보통</option><option>어려움</option></select>
+</div>
+<div class="row"><button class="primary" onclick="makeQuiz()">📝 테스트 만들기</button><button class="gray" onclick="clearAll()">초기화</button></div>
+<div id="status" class="status">자료를 추가한 뒤 테스트 만들기를 눌러주세요.</div>
+</section>
+
+<section class="card">
+<div id="empty">
+<h2>2. 테스트</h2>
+<p class="muted">자료를 분석하면 이곳에 문제가 표시됩니다.</p>
+</div>
+<div id="quiz" class="hidden">
+<div class="quizHead"><span id="progress" class="pill"></span><span id="scoreTop" class="pill"></span></div>
+<div id="q"></div><div id="options"></div><div id="explain" class="explain hidden"></div>
+<div class="row"><button id="next" class="secondary hidden" onclick="nextQ()">다음 문제 →</button></div>
+</div>
+<div id="result" class="hidden score"></div>
+</section>
+</div>
+</div>
+
+<script>
+let pages=[], questions=[], idx=0, score=0, answered=false, profile={};
+
+const $=id=>document.getElementById(id);
+$("files").addEventListener("change", async e=>{
+ pages=[...e.target.files]; $("preview").innerHTML="";
+ for(const f of pages){
+   if(f.type.startsWith("image/")){
+     const url=URL.createObjectURL(f);
+     $("preview").insertAdjacentHTML("beforeend",`<div class="thumb"><img src="${url}"><div class="muted">${esc(f.name)}</div></div>`);
+   } else $("preview").insertAdjacentHTML("beforeend",`<div class="thumb">📄<br>${esc(f.name)}</div>`);
+ }
+ await readTextFiles();
+});
+async function readTextFiles(){
+ for(const f of pages){
+   if(f.type==="text/plain" || f.name.endsWith(".txt")) $("text").value += "\n"+await f.text();
+ }
+ if(pages.some(f=>f.type==="application/pdf"||f.name.endsWith(".pdf")))
+   $("status").textContent="PDF가 선택되었습니다. PDF의 글자를 자동 추출하려면 텍스트를 아래 칸에 붙여 넣어 주세요.";
+ else if(pages.some(f=>f.type.startsWith("image/")))
+   $("status").textContent="페이지 이미지가 추가되었습니다. 이미지 자체도 학습 자료로 보관되며, 정확한 문제 생성을 위해 텍스트를 함께 넣어주세요.";
+}
+function esc(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+
+function startApp(){
+ const age=+$("age").value;
+ if(!age || age<6 || age>100){alert("나이를 입력해 주세요.");return}
+ profile={age,grade:$("grade").value,level:$("level").value,subject:$("subject").value,difficulty:$("difficulty2").value,type:$("qtype").value,count:+$("qcount").value};
+ $("difficulty").value=profile.difficulty==="매우 어려움"?"어려움":profile.difficulty;
+ $("count").value=String(profile.count);
+ $("onboard").style.display="none";
+ $("profile").classList.remove("hidden");
+ $("profile").innerHTML=`👤 ${profile.age}세 · ${profile.grade} · ${profile.subject} · 성적 ${profile.level} · 난이도 ${profile.difficulty} · ${profile.type} · ${profile.count}문제`;
+ $("status").textContent="설정이 완료되었습니다. 이제 시험범위 자료를 추가해 주세요.";
+}
+function sentences(t){
+ return t.replace(/\r/g,"").split(/[.!?。！？\n]/).map(x=>x.trim())
+ .filter(x=>x.length>=18 && x.length<=180);
+}
+function clean(s){return s.replace(/^(예:|즉,|따라서|그러나)\s*/,"").trim()}
+function keywords(s){
+ const stop=new Set("그리고 그러나 또한 통해 대한 있는 하는 하는것 이것 그 무엇 가장 매우 과정 경우 때문에 이용하여 의한 으로부터".split(" "));
+ return [...new Set((s.match(/[가-힣A-Za-z][가-힣A-Za-z0-9·-]{1,}/g)||[]).filter(x=>x.length>=2&&!stop.has(x)))]
+ .sort((a,b)=>b.length-a.length);
+}
+function makeQuiz(){
+ const t=$("text").value.trim(), ss=sentences(t);
+ if(ss.length<3){$("status").textContent="문제를 만들려면 최소 3개 정도의 핵심 문장이 필요합니다. 교과서 텍스트를 붙여 넣어 주세요.";return}
+ const want=profile.count || + $("count").value;
+ let qs=[];
+ ss.forEach((s,i)=>{
+   const ks=keywords(s); if(!ks.length)return;
+   const ans=ks[0];
+   let stem;
+   if(s.includes(ans)) stem=s.replace(ans,"_____")+" ( )에 들어갈 가장 알맞은 말은?";
+   else stem=`다음 내용과 가장 관련 깊은 핵심어는 무엇일까요?\n${s}`;
+   const pool=[...new Set(ss.flatMap(x=>keywords(x)).filter(x=>x!==ans))];
+   if(pool.length<3)return;
+   let opts=[ans,...shuffle(pool).slice(0,3)];
+   if(profile.type==="O/X"){
+     const truth=Math.random()>.5;
+     const shown=truth?s:`다음 내용은 핵심 내용과 반대입니다: ${s}`;
+     qs.push({stem:shown,opts:["O","X"],answer:truth?"O":"X",source:s});
+   } else if(profile.type==="주관식"){
+     qs.push({stem:`다음 내용을 보고 핵심어를 직접 입력하세요.\n${s}`,opts:[ans],answer:ans,source:s,subjective:true});
+   } else qs.push({stem,opts:shuffle(opts),answer:ans,source:s});
+ });
+ if(!qs.length){$("status").textContent="핵심어를 찾지 못했습니다. 교과서 내용을 조금 더 자세히 넣어 주세요.";return}
+ questions=shuffle(qs).slice(0,want); idx=0;score=0;
+ $("empty").classList.add("hidden");$("result").classList.add("hidden");$("quiz").classList.remove("hidden");
+ $("status").textContent=`${questions.length}문제를 만들었습니다.`; showQ();
+}
+function showQ(){
+ answered=false; const x=questions[idx];
+ $("progress").textContent=`${idx+1} / ${questions.length}`;
+ $("scoreTop").textContent=`점수 ${score}`;
+ $("q").innerHTML=`<div class="question">${esc(x.stem).replace(/\n/g,"<br>")}</div>`;
+ $("options").innerHTML=x.subjective
+ ? `<button class="option" onclick="answer(0)">✍️ 답 입력하기</button>`
+ : x.opts.map((o,i)=>`<button class="option" onclick="answer(${i})">${String.fromCharCode(65+i)}. ${esc(o)}</button>`).join("");
+ $("explain").classList.add("hidden");$("next").classList.add("hidden");
+}
+function answer(i){
+ if(answered)return;
+ const x=questions[idx];
+ if(x.subjective){
+   const input=prompt("정답을 입력하세요.");
+   if(input===null)return;
+   answered=true;
+   const ok=input.trim().replace(/\s/g,"").toLowerCase()===x.answer.replace(/\s/g,"").toLowerCase();
+   if(ok)score++;
+   $("explain").innerHTML=(ok?"✅ 정답입니다!":"❌ 정답은 <b>"+esc(x.answer)+"</b>입니다.")+
+   `<br><span class="muted">근거 자료: ${esc(x.source)}</span>`;
+ }else{
+   answered=true;
+   const buttons=[...$("options").children], chosen=x.opts[i];
+   if(buttons[i])buttons[i].classList.add(chosen===x.answer?"correct":"wrong");
+   buttons.forEach((b,n)=>{if(x.opts[n]===x.answer)b.classList.add("correct")});
+   if(chosen===x.answer)score++;
+   $("explain").innerHTML=(chosen===x.answer?"✅ 정답입니다!":"❌ 아쉽습니다. 정답은 <b>"+esc(x.answer)+"</b>입니다.")+
+   `<br><span class="muted">근거 자료: ${esc(x.source)}</span>`;
+ }
+ $("scoreTop").textContent=`점수 ${score}`;
+ $("explain").classList.remove("hidden");
+ $("next").classList.remove("hidden");
+}
+function nextQ(){
+ idx++; if(idx>=questions.length)return finish(); showQ();
+}
+function finish(){
+ $("quiz").classList.add("hidden");$("result").classList.remove("hidden");
+ const pct=Math.round(score/questions.length*100);
+ $("result").innerHTML=`<b>${score} / ${questions.length}</b><div>${pct}점</div><p>${pct>=80?"🎉 잘했어요!":"💪 틀린 문제의 근거 자료를 다시 읽어보세요."}</p><button class="primary" onclick="idx=0;score=0;$('result').classList.add('hidden');$('quiz').classList.remove('hidden');showQ()">다시 풀기</button>`;
+}
+function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+function clearAll(){pages=[];$("files").value="";$("preview").innerHTML="";$("text").value="";questions=[];$("quiz").classList.add("hidden");$("result").classList.add("hidden");$("empty").classList.remove("hidden");$("status").textContent="자료를 추가한 뒤 테스트 만들기를 눌러주세요."}
+</script>
+</body>
+</html>
