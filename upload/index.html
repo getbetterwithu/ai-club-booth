@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⬆️ 내 작품 올리기 · AI 제작반 부스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    --card: #fff; --text: #2a2340; --sub: #6b6580; --line: #e3def2; --field: #f7f5fd;
+    --accent: #6a4fd8; --ok: #1f8a4c; --err: #c62f4b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: linear-gradient(135deg, #1c1640 0%, #2b1746 55%, #45173f 100%);
+      --card: #2a2442; --text: #f2eefc; --sub: #b7afd0; --line: #463e66; --field: #221d38;
+      --accent: #b8a6ff; --ok: #5fd68f; --err: #ff7f96;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg) fixed; min-height: 100vh; color: var(--text); padding: 70px 16px 60px; }
+  h1, h2, button, .jua { font-family: 'Jua', 'Noto Sans KR', sans-serif; font-weight: 400; }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  header { text-align: center; color: #fff; margin-bottom: 20px; }
+  header h1 { font-size: clamp(2rem, 7vw, 2.8rem); text-shadow: 0 3px 0 rgba(0,0,0,.18); }
+  header p { margin-top: 6px; opacity: .95; line-height: 1.6; }
+  .back { position: fixed; top: 12px; left: 12px; z-index: 10; background: #16213e; color: #fff; font-weight: 700; padding: 10px 16px; border-radius: 30px; text-decoration: none; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+  .panel { background: var(--card); border-radius: 22px; padding: 22px 20px; box-shadow: 0 10px 24px rgba(40,20,90,.22); margin-bottom: 16px; }
+  .panel h2 { font-size: 1.35rem; margin-bottom: 12px; }
+  label { display: block; font-weight: 700; margin: 14px 0 6px; }
+  label small { font-weight: 500; color: var(--sub); }
+  input[type=text], input[type=password] {
+    width: 100%; font: inherit; font-size: 1rem; color: var(--text);
+    background: var(--field); border: 2px solid var(--line); border-radius: 12px; padding: 11px 12px;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  .emojis { display: flex; flex-wrap: wrap; gap: 6px; }
+  .emojis button { font-size: 1.5rem; width: 46px; height: 46px; border-radius: 12px; border: 2px solid var(--line); background: var(--field); cursor: pointer; }
+  .emojis button.on { border-color: var(--accent); transform: scale(1.08); box-shadow: 0 0 0 3px rgba(106,79,216,.25); }
+  .drop {
+    display: block; text-align: center; cursor: pointer;
+    border: 3px dashed var(--line); border-radius: 16px; padding: 26px 14px; background: var(--field);
+    color: var(--sub); line-height: 1.6;
+  }
+  .drop.over, .drop.has { border-color: var(--accent); color: var(--text); }
+  .drop input { display: none; }
+  .preview { margin-top: 12px; display: none; }
+  .preview iframe { width: 100%; height: 320px; border: 2px solid var(--line); border-radius: 14px; background: #fff; }
+  .preview p { font-size: .85rem; color: var(--sub); margin-bottom: 6px; }
+  .big {
+    width: 100%; margin-top: 18px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #667eea, #764ba2); color: #fff;
+    font-size: 1.35rem; padding: 15px; border-radius: 16px;
+  }
+  .big:disabled { opacity: .5; cursor: not-allowed; }
+  .small { border: 2px solid var(--line); background: var(--field); color: var(--text); padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 1rem; }
+  .row { display: flex; gap: 8px; margin-top: 10px; }
+  .row input { flex: 1; }
+  .msg { margin-top: 14px; line-height: 1.6; white-space: pre-line; }
+  .msg.ok { color: var(--ok); }
+  .msg.err { color: var(--err); }
+  .msg a { color: var(--accent); font-weight: 700; }
+  .hint { font-size: .9rem; color: var(--sub); line-height: 1.6; }
+  details summary { cursor: pointer; color: var(--sub); font-size: .9rem; }
+  details[open] summary { margin-bottom: 8px; }
+  .hidden { display: none; }
+  .two { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; }
+  .two label { margin-top: 14px; }
+  .mine { margin-top: 12px; padding: 12px; border-radius: 14px; background: var(--field); border: 2px solid var(--line); }
+  .mine b { display: block; margin-bottom: 6px; }
+  .mine label, .item { display: flex; align-items: center; gap: 8px; font-weight: 500; margin: 6px 0 0; cursor: pointer; }
+  .item { justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: default; font-size: .95rem; }
+  .item button { flex: none; color: var(--err); }
+</style>
+</head>
+<body>
+<a class="back" href="../">🏠 허브로</a>
+<div class="wrap">
+  <header>
+    <h1>⬆️ 내 작품 올리기</h1>
+    <p>내가 만든 HTML 파일을 올리면<br>허브의 <b>🎨 학생 작품존</b>에 카드가 생겨!</p>
+  </header>
+
+  <!-- 선생님용: 이 기기에서 처음 한 번만 토큰 입력 -->
+  <div class="panel hidden" id="tokenPanel">
+    <h2>🔑 업로드 열쇠가 필요해요</h2>
+    <p class="hint">동아리 단톡방에 있는 <b>학생용 업로드 링크</b>로 다시 들어와 주세요.<br>선생님은 아래에 GitHub 토큰을 직접 넣어도 돼요.</p>
+    <div class="row">
+      <input type="password" id="tokenInput" placeholder="github_pat_..." autocomplete="off">
+      <button class="small" id="tokenSave">저장</button>
+    </div>
+    <p class="msg" id="tokenMsg"></p>
+  </div>
+
+  <div class="panel" id="formPanel">
+    <h2>📝 작품 정보</h2>
+
+    <div class="two">
+      <div>
+        <label for="sid">학번 * <small>(4자리)</small></label>
+        <input type="text" id="sid" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="2123">
+      </div>
+      <div>
+        <label for="author">이름 *</label>
+        <input type="text" id="author" maxlength="10" placeholder="김코딩">
+      </div>
+    </div>
+    <div class="mine hidden" id="mine"></div>
+
+    <label>내 이모지</label>
+    <div class="emojis" id="emojis"></div>
+
+    <label for="title">작품 이름 *</label>
+    <input type="text" id="title" maxlength="30" placeholder="예: 숫자 맞히기 게임">
+
+    <label for="desc">한 줄 소개</label>
+    <input type="text" id="desc" maxlength="60" placeholder="예: 1부터 100 사이 숫자를 맞혀봐!">
+
+    <label>HTML 파일 * <small>(.html 한 개, 2MB까지)</small></label>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept=".html,.htm,text/html">
+      <span id="dropText">📂 여기를 눌러서 파일 고르기<br><small>(또는 파일을 끌어다 놓기)</small></span>
+    </label>
+    <div class="preview" id="preview">
+      <p>👀 미리보기 — 잘 나오는지 확인해봐!</p>
+      <iframe id="frame" sandbox="allow-scripts" title="미리보기"></iframe>
+    </div>
+
+    <button class="big" id="submit" disabled>🚀 올리기</button>
+    <p class="msg" id="msg"></p>
+  </div>
+
+  <div class="panel">
+    <p class="hint">💡 이미지·CSS를 따로 쓰는 작품은 안 돼요. <b>HTML 파일 하나</b>로 돌아가는 작품만 올려주세요.<br>
+    💡 올린 뒤 허브에 나타나기까지 <b>1~2분</b> 걸려요.</p>
+    <details style="margin-top:10px">
+      <summary>🔧 선생님 메뉴</summary>
+      <p class="hint" style="margin-top:4px">학생용 링크 만들기: 토큰을 넣고 누르면, 학생이 한 번 열기만 하면 바로 올릴 수 있는 링크가 나와요. 동아리 단톡방에만 공유하세요.</p>
+      <div class="row">
+        <input type="password" id="linkToken" placeholder="github_pat_..." autocomplete="off">
+        <button class="small" id="makeLink">링크 만들기</button>
+      </div>
+      <p class="msg" id="linkMsg" style="word-break:break-all"></p>
+      <p class="hint" style="margin-top:14px">전체 작품 관리: 문제 있는 작품을 허브에서 내릴 수 있어요.</p>
+      <button class="small" id="adminLoad" style="margin-top:6px">📋 전체 작품 목록 불러오기</button>
+      <div id="adminList"></div>
+      <button class="small" id="tokenReset" style="margin-top:14px">이 기기의 업로드 열쇠 지우기</button>
+    </details>
+  </div>
+</div>
+
+<script>
+const OWNER = 'getbetterwithu', REPO = 'ai-club-booth', BRANCH = 'main';
+const TOKEN_KEY = 'booth_gh_token';
+const MAX_BYTES = 2 * 1024 * 1024;
+const EMOJIS = ['😎', '🤓', '🥳', '🤖', '👾', '🐱', '🐶', '🦊', '🐼', '🐰', '🐯', '🦄', '🐧', '🐸', '🚀', '🎮'];
+
+const $ = id => document.getElementById(id);
+let emoji = EMOJIS[0], fileBytes = null;
+let replaceSlug = null;   // 교체할 내 작품 (null이면 새 작품)
+
+const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
+const setToken = t => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) {} };
+function showMsg(el, text, kind) { el.className = 'msg' + (kind ? ' ' + kind : ''); el.innerHTML = text; }
+
+// ---------- 토큰 ----------
+// 학생용 링크(upload/#k=토큰)로 들어오면 이 기기에 저장하고 주소창에서 지움
+function takeLinkToken() {
+  const m = location.hash.match(/[#&]k=([^&]+)/);
+  if (!m) return;
+  setToken(decodeURIComponent(m[1]));
+  history.replaceState(null, '', location.pathname + location.search);
+  refreshTokenUI();
+}
+function refreshTokenUI() { $('tokenPanel').classList.toggle('hidden', !!getToken()); updateSubmit(); scheduleMine(); }
+$('tokenSave').onclick = () => {
+  const t = $('tokenInput').value.trim();
+  if (!t) return showMsg($('tokenMsg'), '토큰을 입력해주세요.', 'err');
+  setToken(t); $('tokenInput').value = ''; refreshTokenUI();
+  showMsg($('msg'), '🔑 열쇠 등록 완료! 이제 작품을 올릴 수 있어요.', 'ok');
+};
+$('makeLink').onclick = async () => {
+  const t = $('linkToken').value.trim() || getToken();
+  if (!t) return showMsg($('linkMsg'), '토큰을 넣어주세요.', 'err');
+  const link = location.origin + location.pathname + '#k=' + encodeURIComponent(t);
+  let copied = false;
+  try { await navigator.clipboard.writeText(link); copied = true; } catch (e) {}
+  showMsg($('linkMsg'), (copied ? '📋 복사됐어요!<br>' : '') + escapeHtml(link), 'ok');
+};
+$('tokenReset').onclick = () => {
+  if (!confirm('이 기기에 저장된 업로드 열쇠를 지울까요?')) return;
+  setToken(''); refreshTokenUI(); $('tokenPanel').scrollIntoView({ behavior: 'smooth' });
+};
+
+// ---------- 이모지 ----------
+$('emojis').innerHTML = EMOJIS.map(e => `<button type="button" data-e="${e}" class="${e === emoji ? 'on' : ''}">${e}</button>`).join('');
+function pickEmoji(e) {
+  emoji = e;
+  [...$('emojis').children].forEach(x => x.classList.toggle('on', x.dataset.e === e));
+}
+$('emojis').onclick = ev => { const b = ev.target.closest('button'); if (b) pickEmoji(b.dataset.e); };
+
+// ---------- 파일 ----------
+async function takeFile(f) {
+  fileBytes = null; $('preview').style.display = 'none'; $('drop').classList.remove('has');
+  if (!f) return updateSubmit();
+  if (!/\.html?$/i.test(f.name)) { showMsg($('msg'), '❌ .html 파일만 올릴 수 있어요.', 'err'); return updateSubmit(); }
+  if (f.size > MAX_BYTES) { showMsg($('msg'), '❌ 파일이 너무 커요 (2MB까지).', 'err'); return updateSubmit(); }
+  fileBytes = new Uint8Array(await f.arrayBuffer());
+  $('dropText').innerHTML = `✅ <b>${escapeHtml(f.name)}</b> (${Math.ceil(f.size / 1024)}KB)<br><small>다른 파일로 바꾸려면 다시 누르기</small>`;
+  $('drop').classList.add('has');
+  $('frame').srcdoc = new TextDecoder().decode(fileBytes);
+  $('preview').style.display = 'block';
+  showMsg($('msg'), '');
+  updateSubmit();
+}
+$('file').onchange = e => takeFile(e.target.files[0]);
+['dragover', 'dragenter'].forEach(t => $('drop').addEventListener(t, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => $('drop').addEventListener(t, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', e => takeFile(e.dataTransfer.files[0]));
+['sid', 'author', 'title'].forEach(id => $(id).addEventListener('input', updateSubmit));
+$('sid').addEventListener('input', () => { $('sid').value = $('sid').value.replace(/\D/g, '').slice(0, 4); updateSubmit(); });
+
+function updateSubmit() {
+  $('submit').disabled = !(getToken() && fileBytes && /^\d{4}$/.test($('sid').value) && $('title').value.trim() && $('author').value.trim());
+}
+
+// ---------- GitHub API ----------
+function bytesToB64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+const b64ToText = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), c => c.charCodeAt(0)));
+
+async function gh(path, opts = {}) {
+  const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + getToken(), Accept: 'application/vnd.github+json', ...(opts.headers || {}) },
+  });
+  if (!res.ok) { const err = new Error('GitHub ' + res.status); err.status = res.status; throw err; }
+  return res.json();
+}
+
+async function putFile(path, b64, message, sha) {
+  return gh(path, { method: 'PUT', body: JSON.stringify({ message, content: b64, branch: BRANCH, ...(sha ? { sha } : {}) }) });
+}
+
+async function loadWorks() {
+  try {
+    const cur = await gh(`student-works/works.json?ref=${BRANCH}&t=${Date.now()}`);
+    const list = JSON.parse(b64ToText(cur.content));
+    return { list: Array.isArray(list) ? list : [], sha: cur.sha };
+  } catch (e) { if (e.status === 404) return { list: [], sha: undefined }; throw e; }
+}
+
+// works.json 수정 (여러 명이 동시에 올려도 덮어쓰지 않게 재시도)
+async function updateWorks(change, message) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { list, sha } = await loadWorks();
+    const json = JSON.stringify(change(list), null, 2) + '\n';
+    try {
+      return await putFile('student-works/works.json', bytesToB64(new TextEncoder().encode(json)), message, sha);
+    } catch (e) {
+      if (e.status !== 409 && e.status !== 422) throw e;
+      await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));
+    }
+  }
+  throw new Error('works.json 저장 충돌');
+}
+
+async function fileSha(path) {
+  try { return (await gh(`${path}?ref=${BRANCH}&t=${Date.now()}`)).sha; }
+  catch (e) { if (e.status === 404) return undefined; throw e; }
+}
+
+// ---------- 내 작품 교체 ----------
+// 학번+이름이 같으면 내 작품으로 보고, 새로 올릴지 기존 걸 바꿀지 고르게 함
+let mineTimer = null, myWorks = [];
+function scheduleMine() { clearTimeout(mineTimer); mineTimer = setTimeout(loadMine, 500); }
+async function loadMine() {
+  const sid = $('sid').value, author = $('author').value.trim();
+  myWorks = [];
+  if (getToken() && /^\d{4}$/.test(sid) && author) {
+    try { myWorks = (await loadWorks()).list.filter(w => w.sid === sid && w.author === author); } catch (e) {}
+  }
+  if (!myWorks.some(w => w.slug === replaceSlug)) setReplace(null);
+  renderMine();
+}
+function renderMine() {
+  const box = $('mine');
+  box.classList.toggle('hidden', !myWorks.length);
+  if (!myWorks.length) return;
+  const opt = (val, text) => `<label><input type="radio" name="mode" value="${val}" ${val === (replaceSlug || '') ? 'checked' : ''}> ${text}</label>`;
+  box.innerHTML = '<b>📂 내가 올린 작품이 있어요</b>' + opt('', '✨ 새 작품으로 올리기') +
+    myWorks.map(w => opt(escapeHtml(w.slug), `🔄 「${escapeHtml(w.title || '')}」 고친 파일로 바꾸기`)).join('');
+}
+$('mine').onchange = e => { if (e.target.name === 'mode') setReplace(e.target.value || null); };
+function setReplace(slug) {
+  replaceSlug = slug;
+  const w = myWorks.find(x => x.slug === slug);
+  if (w) { $('title').value = w.title || ''; $('desc').value = w.desc || ''; pickEmoji(w.emoji || emoji); }
+  $('submit').textContent = slug ? '🔄 바꿔 올리기' : '🚀 올리기';
+  updateSubmit();
+}
+['sid', 'author'].forEach(id => $(id).addEventListener('input', scheduleMine));
+
+// ---------- 선생님: 전체 작품 관리 ----------
+async function renderAdmin() {
+  const box = $('adminList');
+  box.innerHTML = '<p class="hint">불러오는 중…</p>';
+  try {
+    const { list } = await loadWorks();
+    box.innerHTML = list.length ? list.map(w => `<div class="item"><span>${escapeHtml(w.emoji || '🎨')} ${escapeHtml(w.title || '')} — ${escapeHtml(w.sid || '')} ${escapeHtml(w.author || '')}</span>
+      <button class="small" data-del="${escapeHtml(w.slug)}">삭제</button></div>`).join('') : '<p class="hint">올라온 작품이 없어요.</p>';
+  } catch (e) { box.innerHTML = `<p class="msg err">${errorText(e)}</p>`; }
+}
+$('adminLoad').onclick = renderAdmin;
+$('adminList').onclick = async ev => {
+  const slug = ev.target.dataset && ev.target.dataset.del; if (!slug) return;
+  const label = ev.target.previousElementSibling.textContent;
+  if (!confirm('이 작품을 허브에서 내리고 파일도 지울까요?\n\n' + label)) return;
+  ev.target.disabled = true; ev.target.textContent = '지우는 중…';
+  try {
+    await updateWorks(list => list.filter(w => w.slug !== slug), `remove work: ${slug}`);
+    const path = `student-works/${slug}/index.html`, sha = await fileSha(path);
+    if (sha) await gh(path, { method: 'DELETE', body: JSON.stringify({ message: `remove work: ${slug}`, sha, branch: BRANCH }) });
+    renderAdmin(); loadMine();
+  } catch (e) { alert(errorText(e)); ev.target.disabled = false; ev.target.textContent = '삭제'; }
+};
+
+function errorText(e) {
+  if (e.status === 401) return '🔑 업로드 열쇠(토큰)가 잘못됐거나 만료됐어요. 선생님께 알려주세요.';
+  if (e.status === 403 || e.status === 404) return '🔒 업로드 열쇠에 이 레포 쓰기 권한이 없어요. 선생님께 알려주세요.';
+  if (e instanceof TypeError) return '📡 인터넷 연결을 확인하고 다시 눌러주세요.';
+  return '😵 올리다가 문제가 생겼어요 (' + e.message + '). 다시 눌러주세요.';
+}
+
+$('submit').onclick = async () => {
+  const sid = $('sid').value, title = $('title').value.trim(), author = $('author').value.trim(), desc = $('desc').value.trim();
+  const replacing = !!replaceSlug;
+  const slug = replaceSlug || Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const path = `student-works/${slug}/index.html`, now = new Date().toISOString();
+  const uploadedText = new TextDecoder().decode(fileBytes);
+  $('submit').disabled = true;
+  showMsg($('msg'), '⏳ 올리는 중… 창을 닫지 마세요!');
+  try {
+    if (replacing) {
+      await putFile(path, bytesToB64(fileBytes), `update work: ${title} by ${sid} ${author}`, await fileSha(path));
+      await updateWorks(list => {
+        const w = list.find(x => x.slug === slug);
+        if (w) Object.assign(w, { title, desc, emoji, updatedAt: now });
+        else list.push({ slug, title, sid, author, desc, emoji, createdAt: now });
+        return list;
+      }, `update work: ${title}`);
+    } else {
+      await putFile(path, bytesToB64(fileBytes), `upload work: ${title} by ${sid} ${author}`);
+      await updateWorks(list => list.concat({ slug, title, sid, author, desc, emoji, createdAt: now }), `add work: ${title}`);
+    }
+  } catch (e) {
+    if (e.status === 401) { setToken(''); refreshTokenUI(); }
+    showMsg($('msg'), '❌ ' + errorText(e), 'err');
+    updateSubmit();
+    return;
+  }
+  const url = `../student-works/${slug}/`;
+  showMsg($('msg'), `🎉 ${replacing ? '바꿔 올리기' : '업로드'} 성공! 1~2분 뒤 허브에 반영돼요.<br>⏳ 사이트에 반영되는 중…`, 'ok');
+  resetForm();
+  loadMine();
+  waitForDeploy(url, uploadedText);
+};
+
+// 페이지 빌드가 끝나서 작품 주소가 열리면 알려주기 (최대 5분)
+async function waitForDeploy(url, text) {
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 10000));
+    try {
+      const r = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
+      if (r.ok && (await r.text()) === text) return showMsg($('msg'), `✅ 반영 완료! <a href="${url}">내 작품 보러가기</a> · <a href="../">허브로 가기</a>`, 'ok');
+    } catch (e) {}
+  }
+  showMsg($('msg'), `🎉 업로드는 됐어요! 반영이 조금 늦네요. 잠시 뒤 <a href="../">허브</a>를 새로고침 해보세요.`, 'ok');
+}
+
+function resetForm() {
+  ['title', 'desc'].forEach(id => $(id).value = '');  // 학번·이름은 남겨둠 (같은 학생이 여러 개 올릴 때 편하게)
+  setReplace(null);
+  $('file').value = ''; fileBytes = null;
+  $('dropText').innerHTML = '📂 여기를 눌러서 파일 고르기<br><small>(또는 파일을 끌어다 놓기)</small>';
+  $('drop').classList.remove('has'); $('preview').style.display = 'none'; $('frame').srcdoc = '';
+  updateSubmit();
+}
+
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+refreshTokenUI();
+takeLinkToken();
+addEventListener('hashchange', takeLinkToken);
+</script>
+</body>
+</html>
