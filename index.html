@@ -4,123 +4,178 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎪 AI 제작반 체험 부스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@500;700&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --bg: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    --card: #fff;
+    --text: #2a2340;
+    --sub: #6b6580;
+    --accent: #6a4fd8;
+    --shadow: 0 10px 24px rgba(40, 20, 90, .22);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: linear-gradient(135deg, #1c1640 0%, #2b1746 55%, #45173f 100%);
+      --card: #2a2442;
+      --text: #f2eefc;
+      --sub: #b7afd0;
+      --accent: #b8a6ff;
+      --shadow: 0 10px 24px rgba(0, 0, 0, .45);
+    }
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'Jua', 'Noto Sans KR', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg) fixed;
     min-height: 100vh;
-    color: #333;
-    padding: 24px 16px 60px;
+    color: var(--text);
+    padding: 28px 16px 60px;
   }
-  .wrap { max-width: 960px; margin: 0 auto; }
-  header { text-align: center; color: #fff; margin-bottom: 28px; }
-  header h1 { font-size: clamp(2rem, 6vw, 3.2rem); text-shadow: 0 3px 0 rgba(0,0,0,.2); }
-  header p { font-size: clamp(1rem, 3vw, 1.3rem); opacity: .95; margin-top: 8px; }
-  .section-title {
-    color: #fff; font-size: 1.5rem; margin: 32px 8px 14px;
-    text-shadow: 0 2px 0 rgba(0,0,0,.2);
+  h1, h2, .section-title, .play, .upload-btn, .count { font-family: 'Jua', 'Noto Sans KR', sans-serif; font-weight: 400; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  header { text-align: center; color: #fff; margin-bottom: 8px; }
+  .hero-emoji { font-size: clamp(3rem, 10vw, 4.5rem); display: inline-block; animation: bob 2.4s ease-in-out infinite; }
+  header h1 { font-size: clamp(2.1rem, 7vw, 3.4rem); text-shadow: 0 3px 0 rgba(0,0,0,.18); margin-top: 4px; }
+  header p { font-size: clamp(1rem, 3vw, 1.25rem); opacity: .95; margin-top: 8px; line-height: 1.6; }
+  .stats { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .count {
+    background: rgba(255,255,255,.2); border: 2px solid rgba(255,255,255,.45);
+    color: #fff; padding: 6px 16px; border-radius: 999px; font-size: 1.05rem;
   }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 16px;
+
+  .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 34px 4px 14px; }
+  .section-title { color: #fff; font-size: 1.6rem; text-shadow: 0 2px 0 rgba(0,0,0,.18); }
+  .upload-btn {
+    background: #fff; color: #6a4fd8; text-decoration: none;
+    font-size: 1.1rem; padding: 10px 18px; border-radius: 999px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.18);
   }
+  .upload-btn:hover { transform: translateY(-2px); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
   .card {
-    background: #fff;
-    border-radius: 20px;
-    padding: 22px 18px;
-    text-align: center;
-    box-shadow: 0 8px 20px rgba(0,0,0,.18);
-    display: flex; flex-direction: column; gap: 10px;
-    transition: transform .15s;
+    position: relative;
+    background: var(--card); color: var(--text); text-decoration: none;
+    border-radius: 22px; padding: 22px 18px 18px;
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+    transition: transform .18s, box-shadow .18s;
   }
+  .card:hover { transform: translateY(-5px) rotate(-.5deg); box-shadow: 0 16px 30px rgba(40,20,90,.3); }
+  .card:hover .icon { transform: scale(1.15) rotate(-6deg); }
   .card:active { transform: scale(.97); }
-  .card .icon { font-size: 3rem; }
-  .card h2 { font-size: 1.35rem; }
-  .card p { font-size: .95rem; color: #666; flex: 1; }
-  .badge {
-    display: inline-block; font-size: .8rem; font-weight: bold;
-    padding: 4px 12px; border-radius: 999px; margin: 0 auto;
-  }
+  .card:focus-visible { outline: 4px solid #ffd84d; outline-offset: 3px; }
+  .card .icon { font-size: 3.2rem; line-height: 1.1; transition: transform .2s; }
+  .card h2 { font-size: 1.4rem; }
+  .card p { font-size: .95rem; color: var(--sub); line-height: 1.5; flex: 1; }
+  .card .by { font-size: .85rem; color: var(--accent); font-weight: 700; }
+  .badge { font-size: .8rem; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
   .badge.cam { background: #fff3cd; color: #856404; }
   .badge.nocam { background: #d4edda; color: #155724; }
-  .play-btn {
-    display: block; text-decoration: none;
+  .new { position: absolute; top: 12px; right: 12px; background: #ff5c8a; color: #fff; font-size: .75rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .play {
+    width: 100%; margin-top: 6px;
     background: linear-gradient(135deg, #667eea, #764ba2);
-    color: #fff; font-size: 1.25rem; font-weight: bold;
-    padding: 14px; border-radius: 14px; margin-top: 6px;
+    color: #fff; font-size: 1.2rem; padding: 12px; border-radius: 14px;
   }
-  .play-btn:active { filter: brightness(.92); }
+
   .placeholder {
-    background: rgba(255,255,255,.25);
-    border: 3px dashed rgba(255,255,255,.7);
-    border-radius: 20px; padding: 36px 20px;
-    text-align: center; color: #fff; font-size: 1.15rem;
+    background: rgba(255,255,255,.18);
+    border: 3px dashed rgba(255,255,255,.65);
+    border-radius: 22px; padding: 34px 20px;
+    text-align: center; color: #fff; font-size: 1.1rem; line-height: 1.7;
   }
-  footer { text-align: center; color: rgba(255,255,255,.85); margin-top: 40px; font-size: .9rem; }
-  /*
-   ============================================================
-   📌 학생 작품 추가하는 방법 (1분 컷!)
-   1. 이 폴더(ai-booth/) 안에 새 폴더를 만들고 index.html을 넣기
-      예: student-works/내이름-앱/index.html
-   2. 아래 STUDENT_WORKS 배열에 한 줄 추가하기:
-      { title: '🎲 내 앱 이름', desc: '한 줄 설명', path: 'student-works/내이름-앱/' },
-   3. git add → commit → push 하면 허브에 자동 반영!
-   ============================================================
-  */
+  footer { text-align: center; color: rgba(255,255,255,.85); margin-top: 44px; font-size: .9rem; line-height: 1.7; }
+
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  @keyframes pop { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .grid .card { animation: pop .4s ease-out backwards; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>🎪 AI 제작반 체험 부스</h1>
-    <p>직접 만져보고 놀아봐! 전부 AI가 들어간 웹앱이야 ✨</p>
+    <div class="hero-emoji">🎪</div>
+    <h1>AI 제작반 체험 부스</h1>
+    <p>직접 만져보고 놀아봐! 전부 AI가 들어간 웹앱이야 ✨<br>마음에 드는 카드를 눌러서 시작!</p>
+    <div class="stats">
+      <span class="count" id="appCount">🤖 AI 체험 5개</span>
+      <span class="count" id="workCount">🎨 학생 작품 0개</span>
+    </div>
   </header>
 
-  <div class="section-title">🤖 AI 체험존</div>
+  <div class="section-head"><div class="section-title">🤖 AI 체험존</div></div>
   <div class="grid" id="appGrid"></div>
 
-  <div class="section-title">🎨 학생 작품존</div>
-  <div id="studentZone"></div>
+  <div class="section-head">
+    <div class="section-title">🎨 학생 작품존</div>
+    <a class="upload-btn" href="upload/">⬆️ 내 작품 올리기</a>
+  </div>
+  <div id="studentZone"><div class="placeholder">작품 불러오는 중… ⏳</div></div>
 
-  <footer>AI 제작반 동아리 발표회 부스 · 만든 앱들은 전부 브라우저에서 돌아가!</footer>
+  <footer>AI 제작반 동아리 발표회 부스<br>여기 있는 앱은 전부 브라우저에서 돌아가!</footer>
 </div>
 
 <script>
 /* 앱 목록: 새 앱을 추가하려면 여기에 한 줄만 넣으면 돼! */
 const APPS = [
-  { title: '🔮 AI 타로 운세',       desc: '이름이랑 고민을 입력하면 AI가 오늘의 운세를 봐줘!', path: 'tarot/',   needCamera: false },
-  { title: '🕵️ AI 진짜? 가짜? 퀴즈',  desc: '진짜 사진 vs AI 가짜! 10문제 중 몇 개나 골라낼까?', path: 'quiz/',    needCamera: false },
-  { title: '📸 AI 물건 맞추기',      desc: '카메라에 물건을 비추면 AI가 이름을 맞혀!',        path: 'object/',  needCamera: true  },
-  { title: '😊 AI 표정 감정 분석기', desc: '얼굴을 비추면 지금 기분을 AI가 읽어줘',           path: 'emotion/', needCamera: true  },
-  { title: '🎮 AI 포즈 따라하기',     desc: '화면 속 포즈를 따라하면 AI가 점수를 매겨줘!',     path: 'pose/',    needCamera: true  },
+  { icon: '🔮', title: 'AI 타로 운세',         desc: '이름이랑 고민을 입력하면 AI가 오늘의 운세를 봐줘!', path: 'tarot/',   needCamera: false },
+  { icon: '🕵️', title: 'AI 진짜? 가짜? 퀴즈', desc: '진짜 사진 vs AI 가짜! 10문제 중 몇 개나 골라낼까?', path: 'quiz/',    needCamera: false },
+  { icon: '📸', title: 'AI 물건 맞추기',       desc: '카메라에 물건을 비추면 AI가 이름을 맞혀!',        path: 'object/',  needCamera: true  },
+  { icon: '😊', title: 'AI 표정 감정 분석기',  desc: '얼굴을 비추면 지금 기분을 AI가 읽어줘',           path: 'emotion/', needCamera: true  },
+  { icon: '🎮', title: 'AI 포즈 따라하기',     desc: '화면 속 포즈를 따라하면 AI가 점수를 매겨줘!',     path: 'pose/',    needCamera: true  },
 ];
 
-/* 학생 작품: { title, desc, path } 형식으로 추가! */
-const STUDENT_WORKS = [
-  // 예시: { title: '🎲 숫자 맞히기 게임', desc: '내가 만든 첫 AI 게임!', path: 'student-works/number-game/' },
-];
+/* 학생 작품은 student-works/works.json에서 읽어옴 (업로드 페이지가 자동으로 추가) */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function cardHTML(app) {
+function appCard(app, i) {
   const badge = app.needCamera
     ? '<span class="badge cam">📷 카메라 필요</span>'
     : '<span class="badge nocam">✅ 카메라 불필요</span>';
-  return `<div class="card">
-    <div class="icon">${app.title.split(' ')[0]}</div>
+  return `<a class="card" href="${app.path}" style="animation-delay:${i * 60}ms">
+    <div class="icon">${app.icon}</div>
     <h2>${app.title}</h2>
     <p>${app.desc}</p>
     ${badge}
-    <a class="play-btn" href="${app.path}">▶ 체험하기</a>
-  </div>`;
+    <span class="play">▶ 체험하기</span>
+  </a>`;
 }
 
-document.getElementById('appGrid').innerHTML = APPS.map(cardHTML).join('');
+function workCard(w, i) {
+  const recent = t => t && Date.now() - Date.parse(t) < 24 * 3600 * 1000;
+  const badge = recent(w.createdAt) ? 'NEW' : recent(w.updatedAt) ? 'UP' : '';
+  const slug = encodeURIComponent(String(w.slug || ''));
+  return `<a class="card" href="student-works/${slug}/" style="animation-delay:${Math.min(i, 12) * 50}ms">
+    ${badge ? `<span class="new">${badge}</span>` : ''}
+    <div class="icon">${esc(w.emoji || '🎨')}</div>
+    <h2>${esc(w.title)}</h2>
+    <p>${esc(w.desc)}</p>
+    <span class="by">👤 ${w.sid ? esc(w.sid) + ' ' : ''}${esc(w.author)}</span>
+    <span class="play">▶ 구경하기</span>
+  </a>`;
+}
+
+document.getElementById('appGrid').innerHTML = APPS.map(appCard).join('');
+document.getElementById('appCount').textContent = `🤖 AI 체험 ${APPS.length}개`;
 
 const zone = document.getElementById('studentZone');
-zone.innerHTML = STUDENT_WORKS.length
-  ? `<div class="grid">${STUDENT_WORKS.map(cardHTML).join('')}</div>`
-  : `<div class="placeholder">🎨 학생들의 작품이 곧 공개됩니다!<br>조금만 기다려줘~</div>`;
+fetch('student-works/works.json?t=' + Date.now())
+  .then(r => r.ok ? r.json() : [])
+  .catch(() => [])
+  .then(works => {
+    works = (Array.isArray(works) ? works : []).filter(w => w && w.slug)
+      .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+    document.getElementById('workCount').textContent = `🎨 학생 작품 ${works.length}개`;
+    zone.innerHTML = works.length
+      ? `<div class="grid">${works.map(workCard).join('')}</div>`
+      : `<div class="placeholder">🎨 아직 올라온 작품이 없어!<br>위의 <b>⬆️ 내 작품 올리기</b>로 첫 번째 주인공이 돼봐~</div>`;
+  });
 </script>
 </body>
 </html>
