@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Battle Island Royale</title>
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#111;color:#fff;font-family:Arial,sans-serif}
+canvas{display:block;background:#6b9b52}
+#hud{position:fixed;inset:0;pointer-events:none}
+#top{display:flex;justify-content:space-between;padding:18px;font-weight:bold;text-shadow:2px 2px #000}
+#help{position:absolute;left:18px;bottom:18px;background:#0009;padding:12px;border-radius:10px;line-height:1.6}
+#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%)}
+#cross:before,#cross:after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px #000}
+#cross:before{width:22px;height:2px;top:10px}.cross{}
+#cross:after{height:22px;width:2px;left:10px}
+#msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;background:#000b;padding:28px 42px;border-radius:18px;display:none}
+button{font-size:18px;padding:10px 22px;border:0;border-radius:10px;cursor:pointer}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+ <div id="top"><span id="alive">생존자: 16</span><span id="ammo">탄약: 30 / 120</span></div>
+ <div id="cross"></div>
+ <div id="help">WASD 이동 · 마우스 조준 · 클릭 사격 · R 재장전 · Shift 달리기</div>
+ <div id="msg"><h1 id="title"></h1><p id="sub"></p><button onclick="location.reload()">다시 시작</button></div>
+</div>
+<script>
+const c=document.getElementById('game'),x=c.getContext('2d');let W,H;
+function resize(){W=c.width=innerWidth;H=c.height=innerHeight}resize();addEventListener('resize',resize);
+const keys={},mouse={x:W/2,y:H/2,down:false};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1;if(e.key.toLowerCase()==='r')reload()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});
+addEventListener('mousedown',()=>mouse.down=true);addEventListener('mouseup',()=>mouse.down=false);
+let p={x:0,y:0,hp:100,ammo:30,reserve:120,kills:0},bots=[],bullets=[],loot=[];
+const map=2600, zone={x:0,y:0,r:1050}, buildings=[];
+for(let i=0;i<42;i++) buildings.push({x:(Math.random()-.5)*2100,y:(Math.random()-.5)*1900,w:80+Math.random()*130,h:60+Math.random()*110});
+for(let i=0;i<15;i++) bots.push({x:(Math.random()-.5)*2100,y:(Math.random()-.5)*1900,hp:100,a:Math.random()*6.28,cd:Math.random()*100});
+for(let i=0;i<45;i++) loot.push({x:(Math.random()-.5)*2200,y:(Math.random()-.5)*2000,t:Math.random()<.65?'ammo':'med'});
+let cam={x:0,y:0},game=true,last=performance.now(),shootCd=0,zoneTime=0;
+function reload(){if(p.ammo<30&&p.reserve>0){let n=Math.min(30-p.ammo,p.reserve);p.ammo+=n;p.reserve-=n}}
+function fire(){
+ if(shootCd>0||p.ammo<=0)return;
+ p.ammo--;shootCd=.12;
+ let ang=Math.atan2(mouse.y-H/2,mouse.x-W/2);
+ bullets.push({x:p.x,y:p.y,dx:Math.cos(ang)*900,dy:Math.sin(ang)*900,life:1});
+}
+function worldToScreen(q){return{x:q.x-cam.x+W/2,y:q.y-cam.y+H/2}}
+function hitBuilding(nx,ny){return buildings.some(b=>nx>b.x-b.w/2&&nx<b.x+b.w/2&&ny>b.y-b.h/2&&ny<b.y+b.h/2)}
+function end(win){game=false;document.getElementById('title').textContent=win?'🏆 승리!':'💀 게임 오버';document.getElementById('sub').textContent=win?'최후의 생존자가 되었습니다!':'다시 도전해 보세요.';document.getElementById('msg').style.display='block'}
+function loop(now){
+ let dt=Math.min(.033,(now-last)/1000);last=now;if(!game)return;
+ shootCd=Math.max(0,shootCd-dt);zoneTime+=dt;
+ if(mouse.down)fire();
+ let sp=keys.shift?300:190,dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+ if(dx||dy){let l=Math.hypot(dx,dy);dx/=l;dy/=l;let nx=p.x+dx*sp*dt,ny=p.y+dy*sp*dt;if(!hitBuilding(nx,p.y))p.x=nx;if(!hitBuilding(p.x,ny))p.y=ny}
+ if(zoneTime>8){zoneTime=0;zone.r=Math.max(180,zone.r-7)}
+ let d=Math.hypot(p.x-zone.x,p.y-zone.y);if(d>zone.r)p.hp-=8*dt;
+ bots.forEach((b,i)=>{
+   let a=Math.atan2(p.y-b.y,p.x-b.x),dist=Math.hypot(p.x-b.x,p.y-b.y);b.a=a;
+   if(dist<650){let nx=b.x+Math.cos(a)*55*dt,ny=b.y+Math.sin(a)*55*dt;if(!hitBuilding(nx,b.y))b.x=nx;if(!hitBuilding(b.x,ny))b.y=ny;b.cd-=dt;if(b.cd<=0){b.cd=1.2+Math.random();if(dist<500)p.hp-=5}}
+   else {b.x+=Math.cos(b.a)*25*dt;b.y+=Math.sin(b.a)*25*dt}
+   if(Math.hypot(b.x-zone.x,b.y-zone.y)>zone.r)b.hp-=6*dt;
+ });
+ bullets.forEach(b=>{b.x+=b.dx*dt;b.y+=b.dy*dt;b.life-=dt;bots.forEach((e,i)=>{if(Math.hypot(b.x-e.x,b.y-e.y)<24){e.hp-=34;b.life=0;if(e.hp<=0){bots.splice(i,1);p.kills++}}})});
+ bullets=bullets.filter(b=>b.life>0);
+ loot=loot.filter(l=>{if(Math.hypot(l.x-p.x,l.y-p.y)<30){if(l.t==='ammo')p.reserve+=30;else p.hp=Math.min(100,p.hp+30);return false}return true});
+ if(p.hp<=0)end(false);if(bots.length===0)end(true);
+ cam.x+=(p.x-cam.x)*.15;cam.y+=(p.y-cam.y)*.15;
+ document.getElementById('alive').textContent='생존자: '+(bots.length+1)+' | 처치: '+p.kills;
+ document.getElementById('ammo').textContent='탄약: '+p.ammo+' / '+p.reserve;
+ draw();requestAnimationFrame(loop)
+}
+function draw(){
+ x.clearRect(0,0,W,H);x.fillStyle='#6e9f54';x.fillRect(0,0,W,H);
+ let step=100,sx=Math.floor((cam.x-W/2)/step)*step,sy=Math.floor((cam.y-H/2)/step)*step;
+ x.strokeStyle='#ffffff14';x.lineWidth=1;
+ for(let gx=sx;gx<cam.x+W/2+step;gx+=step){let q=worldToScreen({x:gx,y:0});x.beginPath();x.moveTo(q.x,0);x.lineTo(q.x,H);x.stroke()}
+ for(let gy=sy;gy<cam.y+H/2+step;gy+=step){let q=worldToScreen({x:0,y:gy});x.beginPath();x.moveTo(0,q.y);x.lineTo(W,q.y);x.stroke()}
+ buildings.forEach(b=>{let q=worldToScreen(b);x.fillStyle='#777';x.fillRect(q.x-b.w/2,q.y-b.h/2,b.w,b.h);x.fillStyle='#555';x.fillRect(q.x-b.w/2,q.y-b.h/2,b.w,10)});
+ loot.forEach(l=>{let q=worldToScreen(l);x.fillStyle=l.t==='ammo'?'#ffd84d':'#45d36b';x.fillRect(q.x-7,q.y-7,14,14)});
+ bots.forEach(b=>{let q=worldToScreen(b);x.fillStyle='#b52b2b';x.beginPath();x.arc(q.x,q.y,17,0,7);x.fill();x.fillStyle='#222';x.fillRect(q.x-12,q.y-25,24,4);x.fillStyle='#5fef6a';x.fillRect(q.x-12,q.y-25,24*b.hp/100,4)});
+ bullets.forEach(b=>{let q=worldToScreen(b);x.fillStyle='#ffe';x.beginPath();x.arc(q.x,q.y,3,0,7);x.fill()});
+ let q=worldToScreen(p);x.fillStyle='#2468e8';x.beginPath();x.arc(q.x,q.y,19,0,7);x.fill();
+ x.strokeStyle='#fff';x.lineWidth=4;let ang=Math.atan2(mouse.y-H/2,mouse.x-W/2);x.beginPath();x.moveTo(q.x,q.y);x.lineTo(q.x+Math.cos(ang)*30,q.y+Math.sin(ang)*30);x.stroke();
+ x.fillStyle='#0008';x.fillRect(18,55,220,18);x.fillStyle='#35d45a';x.fillRect(18,55,220*p.hp/100,18);
+ let z=worldToScreen(zone);x.strokeStyle='#62a8ff';x.lineWidth=5;x.beginPath();x.arc(z.x,z.y,zone.r,0,7);x.stroke();
+}
+requestAnimationFrame(loop);
+</script>
+</body></html>
