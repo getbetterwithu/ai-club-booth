@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Block Rivals - Keyboard FPS</title>
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#080b12;color:white;font-family:Arial,sans-serif}
+canvas{display:block;width:100vw;height:100vh;background:#151b25}
+#ui{position:fixed;inset:0;pointer-events:none}
+#top{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:18px;align-items:center;background:#101621d9;padding:9px 18px;border:1px solid #ffffff22;border-radius:14px;font-weight:bold}
+#blue{color:#54a9ff}#red{color:#ff6262}
+#hud{position:absolute;left:18px;bottom:18px;background:#101621e8;padding:12px 16px;border-radius:12px;border:1px solid #ffffff22}
+#hpbar{width:190px;height:14px;background:#333;border-radius:10px;overflow:hidden;margin-top:5px}
+#hp{height:100%;background:#35e27b;width:100%;transition:.15s}
+#weapon{font-size:20px;font-weight:bold}#ammo{font-size:17px;margin-top:3px}
+#cross{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:25px;font-weight:bold;text-shadow:0 0 5px #000}
+#msg{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);font-size:28px;font-weight:bold;text-align:center;text-shadow:0 3px 8px #000}
+#hitmarker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:34px;color:#ff5b5b;font-weight:900;opacity:0;pointer-events:none;text-shadow:0 0 10px #ff0000;transition:opacity .05s}
+#damageFlash{position:absolute;inset:0;background:rgba(255,30,30,.28);opacity:0;pointer-events:none}
+.enemyBar{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:130px;height:8px;background:#16090b;border:1px solid #ffffff55;border-radius:8px;overflow:hidden;pointer-events:none}
+.enemyBarFill{height:100%;background:#ff4545;width:100%;transition:width .08s}
+#help{position:absolute;right:15px;bottom:15px;background:#101621d9;padding:10px;border-radius:10px;font-size:13px;line-height:1.55;color:#ddd}
+.panel{position:absolute;inset:0;background:#080b12e8;display:flex;align-items:center;justify-content:center;pointer-events:auto}
+.card{width:min(560px,90vw);background:#151c29;border:1px solid #ffffff25;border-radius:20px;padding:30px;text-align:center;box-shadow:0 20px 80px #000}
+button{border:0;border-radius:12px;padding:13px 25px;background:#3182f6;color:white;font-size:17px;font-weight:bold;cursor:pointer;margin:6px}
+button:hover{filter:brightness(1.15)}
+select{background:#202a39;color:white;border:1px solid #ffffff22;padding:9px;border-radius:8px;width:100%}
+.weaponGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:16px 0}
+.weaponCard{background:#202a39;border:2px solid #ffffff18;border-radius:12px;padding:9px;text-align:left;cursor:pointer}
+.weaponCard.selected{border-color:#54a9ff;background:#293b54}
+.weaponCard:hover{background:#2c3b4d}
+.gun{width:100%;height:68px;background:#0c111b;border-radius:8px;display:block}
+.hidden{display:none!important}
+.small{color:#aeb8ca;font-size:14px}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div id="top"><span id="blue">BLUE 0</span><span>ROUND <b id="round">1</b></span><span id="timer">120</span><span id="red">0 RED</span></div>
+  <div id="cross">+</div>
+  <div id="hitmarker">✕</div>
+  <div id="damageFlash"></div>
+  <div id="msg"></div>
+  <div id="hud"><div id="weapon">🔫 Pulse Rifle</div><div id="ammo">30 / ∞</div><div id="hpbar"><div id="hp"></div></div><div id="stats">HP 100</div></div>
+  <div id="help">WASD 이동 · 방향키 조준<br>SPACE 사격 · R 재장전<br>1~4 무기 변경 · H 메디킷<br>SHIFT 질주 · P 일시정지</div>
+  <div id="start" class="panel"><div class="card">
+    <h1>⚡ BLOCK RIVALS</h1>
+    <h2 style="margin:4px 0 8px">무기 선택</h2>
+    <p class="small">게임을 시작하기 전에 사용할 총을 선택하세요.</p>
+    <div id="weaponCards" class="weaponGrid"></div>
+    <div id="loadoutInfo" style="background:#0c111b;padding:12px;border-radius:10px;text-align:left"></div>
+    <div style="text-align:left;margin-top:12px">
+      <b>🎨 플레이어 스킨</b>
+      <select id="skinSelect" style="margin-top:6px">
+        <option value="0">블루 스톰</option>
+        <option value="1">네온 레드</option>
+        <option value="2">골드</option>
+        <option value="3">보이드</option>
+      </select>
+    </div>
+    <div style="margin-top:12px;background:#0c111b;padding:10px;border-radius:10px;text-align:left;font-size:13px">
+      ❤️ <b>메디킷</b> : H키로 사용 · HP +35 · 라운드당 3개
+    </div>
+    <button id="startBtn">⚔️ 선택 완료 & 전투 시작</button>
+  </div></div>
+  <div id="pause" class="panel hidden"><div class="card"><h1>⏸ 일시정지</h1><button onclick="togglePause()">계속하기</button><button onclick="location.reload()">처음부터</button></div></div>
+  <div id="end" class="panel hidden"><div class="card"><h1 id="endTitle">ROUND OVER</h1><p id="endText"></p><button onclick="newRound()">다음 라운드</button></div></div>
+</div>
+<script>
+const c=document.getElementById("game"),x=c.getContext("2d");
+let W,H,DPR;
+function resize(){DPR=devicePixelRatio||1;W=innerWidth;H=innerHeight;c.width=W*DPR;c.height=H*DPR;x.setTransform(DPR,0,0,DPR,0,0)}addEventListener("resize",resize);resize();
+
+const keys={};addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true;if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(e.key.toLowerCase()))e.preventDefault();if(e.key.toLowerCase()=="p"&&started)togglePause();if(e.key.toLowerCase()=="r")reload();if(e.key>="1"&&e.key<="4")switchWeapon(+e.key-1);if(e.key.toLowerCase()=="h")heal()});
+addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+const weapons=[
+ {name:"🔫 Assault Rifle",type:"소총",damage:25,rate:150,mag:30,reload:900,range:900,desc:"중거리에서 안정적인 자동소총"},
+ {name:"💥 Shotgun",type:"산탄총",damage:48,rate:620,mag:8,reload:1100,range:420,desc:"근거리에서 매우 강력한 산탄총"},
+ {name:"⚡ SMG",type:"기관단총",damage:11,rate:75,mag:45,reload:1000,range:600,desc:"빠른 연사와 큰 탄창"},
+ {name:"🎯 Sniper",type:"저격총",damage:75,rate:850,mag:5,reload:1400,range:1300,desc:"긴 사거리와 높은 데미지"}
+];
+let weapon=0,ammo=30,reloading=false,lastShot=0,selectedSkin=0,medkits=3;
+let started=false,paused=false,round=1,time=120,last=0,blueScore=0,redScore=0;
+let player, bots=[],particles=[],shots=[],keysDown={};
+let audioCtx=null, hitMarkerTimer=0, damageFlashTimer=0;
+
+const map={w:1800,h:1100};
+const walls=[
+ {x:520,y:220,w:260,h:80},{x:1010,y:220,w:270,h:80},
+ {x:370,y:500,w:220,h:80},{x:1210,y:500,w:220,h:80},
+ {x:690,y:760,w:420,h:85},{x:790,y:390,w:220,h:80},
+ {x:160,y:800,w:240,h:70},{x:1400,y:800,w:240,h:70}
+];
+function gunSVG(i){
+ const base=`<svg class="gun" viewBox="0 0 300 80" xmlns="http://www.w3.org/2000/svg">`;
+ if(i===0)return base+`<rect x="55" y="30" width="135" height="19" rx="4" fill="#667486"/><rect x="75" y="22" width="95" height="7" rx="3" fill="#9ba8b7"/><rect x="180" y="34" width="75" height="8" rx="3" fill="#313b49"/><path d="M92 49L108 73H134L123 49Z" fill="#3b4757"/></svg>`;
+ if(i===1)return base+`<rect x="70" y="30" width="110" height="22" rx="5" fill="#667486"/><circle cx="96" cy="29" r="13" fill="#252e3a"/><circle cx="131" cy="29" r="13" fill="#252e3a"/><rect x="176" y="34" width="78" height="9" rx="3" fill="#313b49"/><path d="M96 51L113 74H139L126 51Z" fill="#3b4757"/></svg>`;
+ if(i===2)return base+`<rect x="62" y="31" width="105" height="20" rx="5" fill="#667486"/><rect x="157" y="35" width="92" height="8" rx="3" fill="#313b49"/><rect x="85" y="23" width="48" height="7" rx="3" fill="#9ba8b7"/><path d="M88 51L105 74H130L118 51Z" fill="#3b4757"/></svg>`;
+ return base+`<rect x="38" y="32" width="145" height="16" rx="4" fill="#667486"/><rect x="173" y="35" width="108" height="7" rx="3" fill="#313b49"/><rect x="65" y="23" width="115" height="6" rx="3" fill="#9ba8b7"/><path d="M94 48L111 74H138L126 48Z" fill="#3b4757"/></svg>`;
+}
+function renderWeaponMenu(){
+ const box=document.getElementById("weaponCards");
+ box.innerHTML=weapons.map((w,i)=>`<div class="weaponCard ${i===weapon?"selected":""}" data-i="${i}">
+   ${gunSVG(i)}
+   <b>${w.name}</b><div style="font-size:12px;color:#aeb8ca">${w.type}</div>
+   <div style="font-size:12px;margin-top:5px">💥 ${w.damage}　📏 ${w.range}　🔋 ${w.mag}</div>
+ </div>`).join("");
+ box.querySelectorAll(".weaponCard").forEach(card=>{
+   card.addEventListener("click",()=>{
+     weapon=Number(card.dataset.i);
+     renderWeaponMenu();
+     updateLoadoutInfo();
+   });
+ });
+ updateLoadoutInfo();
+}
+function updateLoadoutInfo(){
+ const w=weapons[weapon];
+ document.getElementById("loadoutInfo").innerHTML=
+ `<b>${w.name}</b> — ${w.desc}<br>
+ <span style="color:#aeb8ca">데미지 ${w.damage} · 사거리 ${w.range} · 탄창 ${w.mag}발 · 연사간격 ${w.rate}ms</span>`;
+}
+function heal(){
+ if(!started||paused||player.dead||medkits<=0||player.hp>=100)return;
+ player.hp=Math.min(100,player.hp+35);
+ medkits--;
+}
+renderWeaponMenu();
+document.getElementById("startBtn").addEventListener("click",startGame);
+
+
+function initAudio(){
+  if(!audioCtx){
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  }
+  if(audioCtx.state==="suspended") audioCtx.resume();
+}
+function playTone(freq,duration,type="square",volume=.045,slide=0){
+  if(!audioCtx)return;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,audioCtx.currentTime);
+  if(slide) o.frequency.linearRampToValueAtTime(Math.max(40,freq+slide),audioCtx.currentTime+duration);
+  g.gain.setValueAtTime(volume,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);
+  o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration);
+}
+function playGunSound(){
+  initAudio();
+  playTone(150,.07,"sawtooth",.055, -90);
+  setTimeout(()=>playTone(75,.045,"square",.035, -25),18);
+}
+function playHitSound(){
+  initAudio();
+  playTone(720,.06,"square",.06,-240);
+}
+function playReloadSound(){
+  initAudio();
+  playTone(260,.09,"triangle",.035,120);
+  setTimeout(()=>playTone(390,.08,"triangle",.03,-80),110);
+}
+function showHitEffect(b){
+  hitMarkerTimer=120;
+  damageFlashTimer=75;
+  document.getElementById("hitmarker").style.opacity="1";
+  // 붉은 충격 파편
+  for(let i=0;i<12;i++){
+    const a=Math.random()*Math.PI*2, s=1.5+Math.random()*3.5;
+    particles.push({x:b.x,y:b.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:260,maxLife:260,hit:true});
+  }
+  playHitSound();
+}
+
+function resetRound(){
+ player={x:230,y:550,a:0,hp:100,dead:false,kills:0,flash:0};
+ bots=[];
+ for(let i=0;i<5;i++) bots.push({x:1450+(i%2)*80,y:330+i*125,a:Math.PI,hp:100,dead:false,next:0,resp:0,side:"red"});
+ particles=[];shots=[];ammo=weapons[weapon].mag;reloading=false;time=120;medkits=3;
+}
+function startGame(){
+ initAudio();
+ document.getElementById("start").classList.add("hidden");
+ started=true;
+ selectedSkin=+document.getElementById("skinSelect").value;
+ resetRound();
+ last=performance.now();
+ requestAnimationFrame(loop);
+}
+function newRound(){document.getElementById("end").classList.add("hidden");round++;resetRound();last=performance.now()}
+function togglePause(){paused=!paused;document.getElementById("pause").classList.toggle("hidden",!paused)}
+function switchWeapon(i){
+ if(!started||reloading||!weapons[i])return;
+ weapon=i;
+ ammo=Math.min(ammo,weapons[i].mag);
+}
+function reload(){if(reloading||ammo===weapons[weapon].mag)return;reloading=true;playReloadSound();setTimeout(()=>{ammo=weapons[weapon].mag;reloading=false},weapons[weapon].reload)}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function blocked(a,b){
+ for(const r of walls){
+  let dx=b.x-a.x,dy=b.y-a.y,t=0;
+  for(let k=0;k<=20;k++){let p=k/20,q={x:a.x+dx*p,y:a.y+dy*p};if(q.x>r.x&&q.x<r.x+r.w&&q.y>r.y&&q.y<r.y+r.h)return true}
+ }return false
+}
+function move(o,dx,dy){
+ let nx=Math.max(30,Math.min(map.w-30,o.x+dx)),ny=Math.max(30,Math.min(map.h-30,o.y+dy));
+ let oldx=o.x,oldy=o.y;o.x=nx;if(walls.some(r=>o.x>r.x-22&&o.x<r.x+r.w+22&&o.y>r.y-22&&o.y<r.y+r.h+22))o.x=oldx;
+ o.y=ny;if(walls.some(r=>o.x>r.x-22&&o.x<r.x+r.w+22&&o.y>r.y-22&&o.y<r.y+r.h+22))o.y=oldy;
+}
+function shoot(){
+ let now=performance.now(),w=weapons[weapon];
+ if(reloading||now-lastShot<w.rate)return;
+ if(ammo<=0){reload();return}
+ initAudio();
+ lastShot=now;ammo--;
+ playGunSound();
+ let spread=weapon==1?.16:.035;
+ let ang=player.a+(Math.random()-.5)*spread;
+ let hit=null,best=w.range;
+ for(const b of bots)if(!b.dead){
+   let dx=b.x-player.x,dy=b.y-player.y,d=Math.hypot(dx,dy),da=Math.atan2(dy,dx)-ang;
+   da=Math.atan2(Math.sin(da),Math.cos(da));
+   if(Math.abs(da)<.075 && d<best&&!blocked(player,b)){hit=b;best=d}
+ }
+ shots.push({x:player.x,y:player.y,a:ang,life:100});
+ if(hit){
+   hit.hp=Math.max(0,hit.hp-w.damage);
+   hit.hit=8;
+   showHitEffect(hit);
+   if(hit.hp<=0){
+     hit.dead=true;blueScore++;player.kills++;hit.resp=performance.now()+2500;
+     for(let i=0;i<18;i++){
+       const a=Math.random()*Math.PI*2,s=2+Math.random()*4;
+       particles.push({x:hit.x,y:hit.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:420,maxLife:420,hit:true});
+     }
+   }
+ }
+ if(ammo===0)reload();
+}
+function botShoot(b){
+ if(b.dead)return;
+ let d=dist(b,player);if(d>700||blocked(b,player))return;
+ let a=Math.atan2(player.y-b.y,player.x-b.x);
+ shots.push({x:b.x,y:b.y,a,life:90,enemy:true});
+ if(Math.random()<.16){player.hp-=8;player.flash=5;if(player.hp<=0){player.dead=true;redScore++;setTimeout(()=>{player.dead=false;player.hp=100;player.x=230;player.y=550},1600)}}
+}
+function update(dt){
+ if(paused)return;
+ if(hitMarkerTimer>0){
+   hitMarkerTimer-=dt;
+   if(hitMarkerTimer<=0)document.getElementById("hitmarker").style.opacity="0";
+ }
+ if(damageFlashTimer>0){
+   damageFlashTimer-=dt;
+   document.getElementById("damageFlash").style.opacity=Math.max(0,damageFlashTimer/75);
+ }
+ time-=dt/1000;
+ if(time<=0||blueScore>=15||redScore>=15){finish();return}
+ let speed=keys["shift"]?4.8:3.2,dx=0,dy=0;
+ if(keys["w"]||keys["arrowup"])dy-=1;if(keys["s"]||keys["arrowdown"])dy+=1;
+ if(keys["a"])dx-=1;if(keys["d"])dx+=1;
+ let l=Math.hypot(dx,dy)||1;move(player,dx/l*speed*dt/16,dy/l*speed*dt/16);
+ if(keys["arrowleft"])player.a-=.055*dt/16;if(keys["arrowright"])player.a+=.055*dt/16;
+ if(keys[" "])shoot();
+ for(const b of bots){
+  if(b.hit)b.hit=Math.max(0,b.hit-dt/16);
+  if(b.dead){if(performance.now()>b.resp){b.dead=false;b.hp=100;b.x=1450+Math.random()*220;b.y=180+Math.random()*740}continue}
+  let a=Math.atan2(player.y-b.y,player.x-b.x);b.a=a;
+  let d=dist(b,player);
+  if(d>260){move(b,Math.cos(a)*1.7*dt/16,Math.sin(a)*1.7*dt/16)}
+  else {let s=Math.sin(performance.now()/500+b.x)*.8;move(b,Math.cos(a+Math.PI/2)*s*dt/16,Math.sin(a+Math.PI/2)*s*dt/16)}
+  if(performance.now()>b.next){botShoot(b);b.next=performance.now()+450+Math.random()*600}
+ }
+ for(const p of particles){p.x+=p.vx*dt/16;p.y+=p.vy*dt/16;p.life-=dt}
+ particles=particles.filter(p=>p.life>0);
+ for(const s of shots)s.life-=dt;
+ shots=shots.filter(s=>s.life>0);
+}
+function finish(){
+ if(document.getElementById("end").classList.contains("hidden")){
+  document.getElementById("end").classList.remove("hidden");
+  let result=blueScore>redScore?"BLUE TEAM 승리!":blueScore<redScore?"RED TEAM 승리!":"무승부!";
+  document.getElementById("endTitle").textContent=result;
+  document.getElementById("endText").textContent=`최종 점수  BLUE ${blueScore} : ${redScore} RED`;
+ }
+}
+function render(){
+ x.clearRect(0,0,W,H);
+ let scale=Math.min(W/(map.w),H/(map.h));scale=Math.max(.55,Math.min(.9,scale));
+ let camX=Math.max(0,Math.min(map.w-W/scale,player.x-W/(2*scale)));
+ let camY=Math.max(0,Math.min(map.h-H/scale,player.y-H/(2*scale)));
+ x.save();x.scale(scale,scale);x.translate(-camX,-camY);
+ x.fillStyle="#222b38";x.fillRect(0,0,map.w,map.h);
+ for(let gx=0;gx<map.w;gx+=80){x.strokeStyle="#ffffff08";x.beginPath();x.moveTo(gx,0);x.lineTo(gx,map.h);x.stroke()}
+ for(let gy=0;gy<map.h;gy+=80){x.strokeStyle="#ffffff08";x.beginPath();x.moveTo(0,gy);x.lineTo(map.w,gy);x.stroke()}
+ for(const r of walls){x.fillStyle="#566273";x.fillRect(r.x,r.y,r.w,r.h);x.fillStyle="#68778a";x.fillRect(r.x,r.y,r.w,8)}
+ for(const s of shots){x.strokeStyle=s.enemy?"#ff5353":"#7fc4ff";x.lineWidth=5;x.beginPath();x.moveTo(s.x,s.y);x.lineTo(s.x+Math.cos(s.a)*70,s.y+Math.sin(s.a)*70);x.stroke()}
+ for(const p of particles){
+  if(p.hit){
+    const alpha=Math.max(0,p.life/(p.maxLife||300));
+    x.save();x.globalAlpha=alpha;x.fillStyle="#ff5555";
+    x.beginPath();x.arc(p.x,p.y,3.5,0,Math.PI*2);x.fill();x.restore();
+  }
+}
+for(const b of bots)if(!b.dead){
+  drawPlayer(b,b.hit>0?"#ffffff":"#e94c58");
+  // 적 머리 위 실시간 체력바
+  x.save();
+  x.translate(b.x,b.y-55);
+  x.fillStyle="#190b0d";x.fillRect(-32,0,64,7);
+  x.fillStyle="#ff3f4d";x.fillRect(-32,0,64*Math.max(0,b.hp)/100,7);
+  x.strokeStyle="#ffffff88";x.lineWidth=1;x.strokeRect(-32,0,64,7);
+  x.fillStyle="#fff";x.font="bold 10px Arial";x.textAlign="center";
+  x.fillText(Math.ceil(b.hp)+" HP",0,-4);
+  x.restore();
+}
+ if(!player.dead)drawPlayer(player,"#459cff",true);
+ // 현재 총의 최대 사거리 표시
+ x.save();
+ x.strokeStyle="rgba(100,200,255,.35)";
+ x.lineWidth=3;
+ x.setLineDash([12,10]);
+ x.beginPath();x.moveTo(player.x,player.y);
+ x.lineTo(player.x+Math.cos(player.a)*weapons[weapon].range,
+          player.y+Math.sin(player.a)*weapons[weapon].range);
+ x.stroke();x.restore();
+ x.restore();
+ drawHUD();
+}
+function drawPlayer(o,col,me=false){
+ if(me) col=["#459cff","#ff4d63","#ffd34d","#9c62ff"][selectedSkin];
+ x.save();x.translate(o.x,o.y);x.rotate(o.a);
+ x.fillStyle="#0006";x.beginPath();x.ellipse(0,18,24,10,0,0,Math.PI*2);x.fill();
+ x.fillStyle=col;x.fillRect(-18,-18,36,38);
+ x.fillStyle="#f1c8a0";x.beginPath();x.arc(0,-25,14,0,Math.PI*2);x.fill();
+ x.fillStyle="#222";x.fillRect(-12,-31,24,8);
+ x.fillStyle="#111";
+ if(me){
+   if(weapon===1){x.fillRect(9,-7,42,8);x.fillRect(9,1,42,7);}
+   else if(weapon===3){x.fillRect(8,-5,55,6);x.fillRect(18,-13,34,5);}
+   else if(weapon===2){x.fillRect(9,-5,42,7);}
+   else{x.fillRect(9,-5,45,8);x.fillRect(22,-11,24,5);}
+   x.fillStyle="#222";x.fillRect(12,2,12,17);
+ }
+ if(me){x.strokeStyle="#fff8";x.lineWidth=2;x.strokeRect(-20,-20,40,42)}
+ x.restore();
+}
+function drawHUD(){
+ document.getElementById("blue").textContent="BLUE "+blueScore;
+ document.getElementById("red").textContent=redScore+" RED";
+ document.getElementById("timer").textContent=Math.max(0,Math.ceil(time));
+ document.getElementById("round").textContent=round;
+ document.getElementById("weapon").textContent=weapons[weapon].name+"  ·  RANGE "+weapons[weapon].range+(reloading?"  ↻":"");
+ document.getElementById("ammo").textContent=ammo+" / ∞";
+ document.getElementById("hp").style.width=Math.max(0,player.hp)+"%";
+ document.getElementById("stats").textContent="HP "+Math.max(0,Math.ceil(player.hp))+"   KILLS "+player.kills+"   🧰 "+medkits;
+ document.getElementById("msg").textContent=player.dead?"YOU ARE DOWN!":reloading?"RELOADING...":"";
+}
+function loop(t){let dt=Math.min(40,t-last);last=t;if(started){update(dt);render();requestAnimationFrame(loop)}}
+</script>
+</body>
+</html>
