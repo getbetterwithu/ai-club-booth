@@ -221,6 +221,7 @@
       aspect-ratio: 4 / 3;
     }
     video { width: 100%; height: 100%; object-fit: cover; display: block; transform: scaleX(-1); }
+    .boxes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     .viewfinder {
       position: absolute;
       inset: 12%;
@@ -351,7 +352,6 @@
     .celebration p { color: var(--muted); font-size: 1.12rem; font-weight: 700; margin-bottom: 27px; }
 
     .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
-    canvas { display: none; }
 
     @media (max-width: 820px) {
       .app { padding: 16px; }
@@ -409,7 +409,7 @@
       <div class="topline">
         <div class="mode-copy">
           <h1 id="liveTitle">물건을 네모 안에 보여줘</h1>
-          <p id="modeDescription">한 번에 물건 하나씩, 가까이 비추면 더 잘 맞혀!</p>
+          <p id="modeDescription">여러 개를 한꺼번에 보여줘도 AI가 하나하나 찾아내!</p>
         </div>
         <span class="live-dot">AI가 보는 중</span>
       </div>
@@ -417,8 +417,9 @@
       <div class="live-grid">
         <div class="camera-card">
           <video id="camera" playsinline muted autoplay aria-label="실시간 카메라 영상"></video>
+          <canvas id="boxes" class="boxes" aria-hidden="true"></canvas>
           <div class="viewfinder" aria-hidden="true"></div>
-          <div class="camera-tip">물건을 화면 가운데에 놓아줘</div>
+          <div class="camera-tip">물건을 보여주면 AI가 네모로 찾아내!</div>
           <div id="successFlash" class="success-flash" aria-live="assertive">성공!</div>
         </div>
 
@@ -438,7 +439,7 @@
           <section id="missionCard" class="mission-card" aria-labelledby="missionPrompt">
             <div id="missionProgress" class="mission-progress">미션 1 / 5</div>
             <h2 id="missionPrompt" class="mission-prompt">컵을 찾아 비춰보세요</h2>
-            <p class="mission-note">TOP 3 안에 30% 이상으로 나오면 성공이야!</p>
+            <p class="mission-note">AI가 찾아서 TOP 3에 30% 이상 나오면 성공이야!</p>
             <ol id="stampRow" class="stamp-row" aria-label="미션 성공 현황">
               <li class="stamp"><span>1</span></li><li class="stamp"><span>2</span></li><li class="stamp"><span>3</span></li><li class="stamp"><span>4</span></li><li class="stamp"><span>5</span></li>
             </ol>
@@ -471,14 +472,11 @@
     </div>
   </div>
 
-  <canvas id="captureCanvas" width="224" height="224" aria-hidden="true"></canvas>
-
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
   <script>
     (function () {
       'use strict';
 
+      // ImageNet 분류 결과용 한글 이름 (탐지 모델이 못 찾을 때 보조로 씀)
       var labelMap = {
         'coffee mug':'머그컵','cup':'컵','water bottle':'물병','pop bottle':'탄산음료 병','soda bottle':'탄산음료 병','wine bottle':'와인병','beer bottle':'맥주병','milk can':'우유통','teapot':'주전자','coffeepot':'커피포트','plate':'접시','bowl':'그릇','frying pan':'프라이팬','frypan':'프라이팬','skillet':'프라이팬','wok':'웍','dutch oven':'냄비','spatula':'뒤집개','ladle':'국자','cleaver':'식칼','meat cleaver':'식칼','chopper':'식칼',
         'banana':'바나나','apple':'사과','orange':'오렌지','strawberry':'딸기','lemon':'레몬','pineapple':'파인애플','ananas':'파인애플','pomegranate':'석류','pizza':'피자','pizza pie':'피자','cheeseburger':'치즈버거','hotdog':'핫도그','hot dog':'핫도그','red hot':'핫도그','ice cream':'아이스크림','icecream':'아이스크림','bagel':'베이글','beigel':'베이글','pretzel':'프레첼','croissant':'크루아상',
@@ -492,13 +490,31 @@
         'golden retriever':'골든리트리버','labrador retriever':'래브라도 리트리버','poodle':'푸들','maltese dog':'말티즈','maltese terrier':'말티즈','maltese':'말티즈','shih-tzu':'시츄','pomeranian':'포메라니안','chihuahua':'치와와','cardigan':'웰시코기','cardigan welsh corgi':'웰시코기','pembroke':'웰시코기','pembroke welsh corgi':'웰시코기','beagle':'비글','pug':'퍼그','pug-dog':'퍼그','siberian husky':'시베리안 허스키','eskimo dog':'허스키','husky':'허스키','samoyed':'사모예드','samoyede':'사모예드','collie':'콜리','border collie':'보더콜리','dalmatian':'달마시안','coach dog':'달마시안','carriage dog':'달마시안','cocker spaniel':'코커스패니얼','english cocker spaniel':'코커스패니얼','cocker':'코커스패니얼','yorkshire terrier':'요크셔테리어','tabby':'얼룩고양이','tabby cat':'얼룩고양이','tiger cat':'호랑이무늬 고양이','persian cat':'페르시안 고양이','siamese cat':'샴고양이','siamese':'샴고양이','egyptian cat':'이집션고양이','lion':'사자','king of beasts':'사자','panthera leo':'사자','tiger':'호랑이','panthera tigris':'호랑이'
       };
 
+      // COCO 물체 탐지 결과용 한글 이름
+      var cocoMap = {
+        'person':'사람','bicycle':'자전거','car':'자동차','motorcycle':'오토바이','airplane':'비행기','bus':'버스','train':'기차','truck':'트럭','boat':'배',
+        'traffic light':'신호등','fire hydrant':'소화전','stop sign':'정지 표지판','parking meter':'주차 미터기','bench':'벤치',
+        'bird':'새','cat':'고양이','dog':'강아지','horse':'말','sheep':'양','cow':'소','elephant':'코끼리','bear':'곰','zebra':'얼룩말','giraffe':'기린',
+        'backpack':'가방','umbrella':'우산','handbag':'핸드백','tie':'넥타이','suitcase':'여행가방',
+        'frisbee':'프리스비','skis':'스키','snowboard':'스노보드','sports ball':'공','kite':'연','baseball bat':'야구 방망이','baseball glove':'야구 글러브','skateboard':'스케이트보드','surfboard':'서핑보드','tennis racket':'테니스 라켓',
+        'bottle':'병','wine glass':'와인잔','cup':'컵','fork':'포크','knife':'칼','spoon':'숟가락','bowl':'그릇',
+        'banana':'바나나','apple':'사과','sandwich':'샌드위치','orange':'오렌지','broccoli':'브로콜리','carrot':'당근','hot dog':'핫도그','pizza':'피자','donut':'도넛','cake':'케이크',
+        'chair':'의자','couch':'소파','potted plant':'화분','bed':'침대','dining table':'책상','toilet':'변기',
+        'tv':'모니터','laptop':'노트북','mouse':'마우스','remote':'리모컨','keyboard':'키보드','cell phone':'휴대폰',
+        'microwave':'전자레인지','oven':'오븐','toaster':'토스터','sink':'싱크대','refrigerator':'냉장고',
+        'book':'책','clock':'시계','vase':'꽃병','scissors':'가위','teddy bear':'곰인형','hair drier':'헤어드라이어','toothbrush':'칫솔'
+      };
+
       var missions = [
-        { prompt: '컵을 찾아 비춰보세요', labels: ['컵', '머그컵'] },
+        { prompt: '컵을 찾아 비춰보세요', labels: ['컵', '머그컵', '와인잔'] },
         { prompt: '책을 찾아 비춰보세요', labels: ['책'] },
         { prompt: '휴대폰을 비춰보세요', labels: ['휴대폰'] },
-        { prompt: '모자를 비춰보세요', labels: ['야구 모자', '카우보이 모자', '솜브레로', '샤워캡', '수영모'] },
-        { prompt: '바나나를 비춰보세요', labels: ['바나나'] }
+        { prompt: '물병을 비춰보세요', labels: ['병', '물병', '탄산음료 병'] },
+        { prompt: '가위를 비춰보세요', labels: ['가위'] }
       ];
+
+      var TASKS = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
+      var MODELS = 'https://storage.googleapis.com/mediapipe-models/';
 
       var screens = document.querySelectorAll('.screen');
       var startButton = document.getElementById('startButton');
@@ -507,8 +523,8 @@
       var quitMissionButton = document.getElementById('quitMissionButton');
       var celebrationButton = document.getElementById('celebrationButton');
       var camera = document.getElementById('camera');
-      var canvas = document.getElementById('captureCanvas');
-      var ctx = canvas.getContext('2d', { alpha: false });
+      var boxCanvas = document.getElementById('boxes');
+      var boxCtx = boxCanvas.getContext('2d');
       var predictionList = document.getElementById('predictionList');
       var missionCard = document.getElementById('missionCard');
       var missionProgress = document.getElementById('missionProgress');
@@ -519,11 +535,17 @@
       var errorTitle = document.getElementById('errorTitle');
       var errorMessage = document.getElementById('errorMessage');
 
-      var model = null;
+      var detector = null;
+      var classifier = null;
       var modelPromise = null;
       var stream = null;
-      var classifyTimer = null;
-      var isClassifying = false;
+      var loopId = null;
+      var lastDetect = 0;
+      var lastClassify = 0;
+      var lastRender = 0;
+      var lastVideoTime = -1;
+      var smooth = {};          // 라벨별 점수를 부드럽게 (깜빡임 방지)
+      var guesses = [];         // 탐지 모델이 못 찾을 때 분류 모델의 짐작
       var missionMode = false;
       var missionIndex = 0;
       var missionLocked = false;
@@ -537,37 +559,48 @@
       }
 
       function translateLabel(className) {
-        var aliases = String(className || '').split(',');
-        for (var i = 0; i < aliases.length; i += 1) {
-          var key = aliases[i].trim().toLowerCase();
-          if (Object.prototype.hasOwnProperty.call(labelMap, key)) return labelMap[key];
-        }
-        return '음... 이건 잘 모르겠어! 🤔';
+        var key = String(className || '').trim().toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(labelMap, key)) return labelMap[key];
+        return className;  // 한글 이름이 없으면 영어 이름이라도 보여줌
       }
 
+      // int8(가벼운) 모델은 CPU에서 빠르게 돌도록 만들어진 모델이라 CPU로 실행
+      function createTask(Task, options) {
+        options.baseOptions.delegate = 'CPU';
+        return Task.createFromOptions(vision, options);
+      }
+
+      var vision = null;
       function ensureModel() {
-        if (model) return Promise.resolve(model);
+        if (detector) return Promise.resolve(detector);
         if (modelPromise) return modelPromise;
-        modelPromise = new Promise(function (resolve, reject) {
-          if (!window.tf || !window.mobilenet) {
-            reject(new Error('library-load'));
-            return;
-          }
-          window.tf.ready().then(function () {
-            return window.mobilenet.load({ version: 2, alpha: 0.5 });
-          }).then(function (loadedModel) {
-            model = loadedModel;
-            resolve(model);
-          }).catch(function (error) {
-            modelPromise = null;
-            reject(error);
+        var lib;
+        modelPromise = import(TASKS + '/vision_bundle.mjs').then(function (mod) {
+          lib = mod;
+          return lib.FilesetResolver.forVisionTasks(TASKS + '/wasm');
+        }).then(function (fileset) {
+          vision = fileset;
+          return createTask(lib.ObjectDetector, {
+            baseOptions: { modelAssetPath: MODELS + 'object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite' },
+            runningMode: 'VIDEO', scoreThreshold: 0.35, maxResults: 6
           });
+        }).then(function (task) {
+          detector = task;
+          // 보조 분류 모델은 뒤에서 천천히 받아둠
+          createTask(lib.ImageClassifier, {
+            baseOptions: { modelAssetPath: MODELS + 'image_classifier/efficientnet_lite0/int8/1/efficientnet_lite0.tflite' },
+            runningMode: 'VIDEO', maxResults: 3
+          }).then(function (c) { classifier = c; }).catch(function () {});
+          return detector;
+        }).catch(function (error) {
+          modelPromise = null;
+          throw new Error('library-load');
         });
         return modelPromise;
       }
 
       function cameraError(error) {
-        stopClassifying();
+        stopLoop();
         if (stream) {
           stream.getTracks().forEach(function (track) { track.stop(); });
           stream = null;
@@ -604,77 +637,140 @@
           camera.srcObject = stream;
           return camera.play();
         }).then(function () {
-          if (!model) showScreen('loadingScreen');
+          if (!detector) showScreen('loadingScreen');
           return ensureModel();
         }).then(function () {
           predictionList.innerHTML = '<p class="waiting">물건을 기다리고 있어...</p>';
+          smooth = {}; guesses = [];
           showScreen('liveScreen');
-          startClassifying();
+          startLoop();
         }).catch(cameraError).finally(function () {
           startButton.disabled = false;
           retryButton.disabled = false;
         });
       }
 
-      function captureFrame() {
-        var vw = camera.videoWidth;
-        var vh = camera.videoHeight;
-        if (!vw || !vh) return false;
-        var side = Math.min(vw, vh);
-        var sx = (vw - side) / 2;
-        var sy = (vh - side) / 2;
-        ctx.save();
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(camera, sx, sy, side, side, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
-        return true;
+      // ---------- 탐지 루프 ----------
+      function startLoop() {
+        stopLoop();
+        loopId = requestAnimationFrame(tick);
+      }
+      function stopLoop() {
+        if (loopId) cancelAnimationFrame(loopId);
+        loopId = null;
       }
 
-      function classifyFrame() {
-        if (!model || isClassifying || camera.readyState < 2) return;
-        if (!captureFrame()) return;
-        isClassifying = true;
-        model.classify(canvas, 3).then(function (predictions) {
-          var translated = predictions.map(function (prediction) {
-            return { label: translateLabel(prediction.className), probability: prediction.probability };
+      function tick(now) {
+        loopId = requestAnimationFrame(tick);
+        if (!detector || camera.readyState < 2 || camera.currentTime === lastVideoTime) return;
+        if (now - lastDetect < 120) return;
+        lastDetect = now; lastVideoTime = camera.currentTime;
+        var found = [];
+        try {
+          found = detector.detectForVideo(camera, now).detections.map(function (d) {
+            var c = d.categories[0];
+            return { label: cocoMap[c.categoryName] || c.categoryName, score: c.score, box: d.boundingBox, person: c.categoryName === 'person' };
           });
-          renderPredictions(translated);
-          checkMission(translated);
-        }).catch(function () {
-          predictionList.innerHTML = '<p class="waiting">잠깐 헷갈렸어. 물건을 다시 보여줘!</p>';
-        }).finally(function () {
-          isClassifying = false;
+        } catch (e) { return; }
+        updateSmooth(found);
+        drawBoxes(found);
+
+        // 사람 말고 찾은 물건이 없으면 가운데를 분류 모델로 짐작
+        var hasObject = Object.keys(smooth).some(function (k) { return k !== '사람' && smooth[k] > 0.3; });
+        if (!hasObject && classifier && now - lastClassify > 700) {
+          lastClassify = now;
+          try {
+            guesses = classifier.classifyForVideo(camera, now, { regionOfInterest: { left: .15, top: .15, right: .85, bottom: .85 } })
+              .classifications[0].categories.filter(function (c) { return c.score >= 0.15; })
+              .map(function (c) { return { label: translateLabel(c.categoryName), score: c.score, guess: true }; });
+          } catch (e) { guesses = []; }
+        } else if (hasObject) {
+          guesses = [];
+        }
+
+        if (now - lastRender > 350) {
+          lastRender = now;
+          var list = topPredictions();
+          renderPredictions(list);
+          checkMission(list);
+        }
+      }
+
+      function updateSmooth(found) {
+        var current = {};
+        found.forEach(function (f) { current[f.label] = Math.max(current[f.label] || 0, f.score); });
+        Object.keys(current).forEach(function (k) { if (!(k in smooth)) smooth[k] = 0; });
+        Object.keys(smooth).forEach(function (k) {
+          smooth[k] = smooth[k] * 0.55 + (current[k] || 0) * 0.45;
+          if (smooth[k] < 0.08) delete smooth[k];
         });
       }
 
-      function startClassifying() {
-        stopClassifying();
-        classifyFrame();
-        classifyTimer = window.setInterval(classifyFrame, 800);
+      function topPredictions() {
+        var list = Object.keys(smooth).map(function (k) { return { label: k, probability: smooth[k] }; })
+          .filter(function (p) { return p.probability >= 0.2; });
+        // 물건을 먼저, 사람은 뒤로
+        list.sort(function (a, b) { return (a.label === '사람') - (b.label === '사람') || b.probability - a.probability; });
+        if (!list.some(function (p) { return p.label !== '사람'; }) && guesses.length) {
+          list = guesses.map(function (g) { return { label: g.label, probability: g.score, guess: true }; }).concat(list);
+        }
+        return list.slice(0, 3);
       }
 
-      function stopClassifying() {
-        if (classifyTimer) window.clearInterval(classifyTimer);
-        classifyTimer = null;
-        isClassifying = false;
+      // 화면에 보이는 영상(좌우 반전, 꽉 채우기)에 맞춰 박스 그리기
+      function drawBoxes(found) {
+        var dpr = Math.min(2, window.devicePixelRatio || 1);
+        var cw = boxCanvas.clientWidth, ch = boxCanvas.clientHeight;
+        if (boxCanvas.width !== Math.round(cw * dpr) || boxCanvas.height !== Math.round(ch * dpr)) {
+          boxCanvas.width = Math.round(cw * dpr); boxCanvas.height = Math.round(ch * dpr);
+        }
+        boxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        boxCtx.clearRect(0, 0, cw, ch);
+        var vw = camera.videoWidth, vh = camera.videoHeight;
+        if (!vw || !vh) return;
+        var scale = Math.max(cw / vw, ch / vh), ox = (cw - vw * scale) / 2, oy = (ch - vh * scale) / 2;
+        var font = Math.max(15, Math.round(cw / 34));
+        boxCtx.font = '800 ' + font + 'px "Noto Sans KR", sans-serif';
+        boxCtx.textBaseline = 'middle';
+        found.forEach(function (f) {
+          var b = f.box;
+          var w = b.width * scale, h = b.height * scale;
+          var x = cw - (ox + b.originX * scale) - w, y = oy + b.originY * scale;
+          var color = f.person ? 'rgba(255,255,255,.75)' : '#ffd943';
+          boxCtx.lineWidth = f.person ? 2 : 4;
+          boxCtx.strokeStyle = color;
+          boxCtx.beginPath();
+          if (boxCtx.roundRect) boxCtx.roundRect(x, y, w, h, 12); else boxCtx.rect(x, y, w, h);
+          boxCtx.stroke();
+          var text = f.label + ' ' + Math.round(f.score * 100) + '%';
+          var tw = boxCtx.measureText(text).width + 16, th = font + 12;
+          var ty = y - th - 4 < 0 ? y + 4 : y - th - 4;
+          var tx = Math.min(Math.max(0, x), cw - tw);
+          boxCtx.fillStyle = f.person ? 'rgba(10,20,23,.7)' : '#ffd943';
+          boxCtx.beginPath();
+          if (boxCtx.roundRect) boxCtx.roundRect(tx, ty, tw, th, 8); else boxCtx.rect(tx, ty, tw, th);
+          boxCtx.fill();
+          boxCtx.fillStyle = f.person ? '#fff' : '#17222d';
+          boxCtx.fillText(text, tx + 8, ty + th / 2);
+        });
       }
 
       function renderPredictions(predictions) {
         if (!predictions.length) {
-          predictionList.innerHTML = '<p class="waiting">아직 잘 모르겠어. 조금 더 가까이 보여줘!</p>';
+          predictionList.innerHTML = '<p class="waiting">아직 잘 모르겠어. 물건을 카메라에 보여줘!</p>';
           return;
         }
         predictionList.innerHTML = '';
         predictions.forEach(function (prediction) {
           var percent = Math.max(0, Math.min(100, Math.round(prediction.probability * 100)));
+          var label = prediction.guess ? prediction.label + '?' : prediction.label;
           var row = document.createElement('div');
           row.className = 'prediction';
           row.innerHTML = '<div class="prediction-head"><span class="prediction-label"></span><span class="probability"></span></div><div class="bar" aria-hidden="true"><span></span></div>';
-          row.querySelector('.prediction-label').textContent = prediction.label;
+          row.querySelector('.prediction-label').textContent = label;
           row.querySelector('.probability').textContent = percent + '%';
           row.querySelector('.bar > span').style.width = percent + '%';
-          row.setAttribute('aria-label', prediction.label + ' ' + percent + '퍼센트');
+          row.setAttribute('aria-label', label + ' ' + percent + '퍼센트');
           predictionList.appendChild(row);
         });
       }
@@ -695,7 +791,7 @@
         missionLocked = false;
         missionCard.classList.remove('active');
         missionStartButton.hidden = false;
-        modeDescription.textContent = '한 번에 물건 하나씩, 가까이 비추면 더 잘 맞혀!';
+        modeDescription.textContent = '여러 개를 한꺼번에 보여줘도 AI가 하나하나 찾아내!';
       }
 
       function resetStamps() {
@@ -739,7 +835,7 @@
       }
 
       function shutdownCamera() {
-        stopClassifying();
+        stopLoop();
         if (stream) {
           stream.getTracks().forEach(function (track) { track.stop(); });
           stream = null;
@@ -754,5 +850,5 @@
       window.addEventListener('pagehide', shutdownCamera);
     }());
   </script>
-<a href="../" id="hub-back" style="position:fixed;top:12px;left:12px;z-index:9999;background:#16213e;color:#fff;font-weight:800;font-size:15px;padding:10px 16px;border-radius:30px;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)">🏠 허브로</a></body>
+<a href="../" id="hub-back" style="position:fixed;bottom:12px;left:12px;z-index:9999;background:#16213e;color:#fff;font-weight:800;font-size:15px;padding:10px 16px;border-radius:30px;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)">🏠 허브로</a></body>
 </html>
