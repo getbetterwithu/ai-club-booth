@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>LUMEN TRACE — 흔적의 정원</title>
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070812;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f7f4ff}
+  canvas{display:block;width:100vw;height:100vh;cursor:crosshair;background:#070812}
+  #ui{position:fixed;inset:0;pointer-events:none}
+  #brand{position:absolute;left:22px;top:18px;font-weight:800;letter-spacing:.24em;font-size:13px;color:#d8d5ff;text-shadow:0 0 18px rgba(154,139,255,.55)}
+  #stats{position:absolute;left:22px;top:48px;width:min(340px,calc(100vw - 44px));display:grid;gap:8px}
+  .row{display:grid;grid-template-columns:72px 1fr 54px;align-items:center;gap:8px;font-size:11px;letter-spacing:.08em;color:#bcb8d8}
+  .bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 0 10px rgba(0,0,0,.35)}
+  .fill{height:100%;width:50%;border-radius:999px;transition:width .12s linear;box-shadow:0 0 12px currentColor}
+  #hpFill{background:linear-gradient(90deg,#ff5e7b,#ff9e7a);color:#ff6d82}
+  #energyFill{background:linear-gradient(90deg,#8c7cff,#7ee8ff);color:#8ddfff}
+  #objective{position:absolute;right:24px;top:20px;text-align:right;font-size:12px;line-height:1.7;color:#c8c5df;letter-spacing:.06em}
+  #objective b{color:#fff;font-size:14px}
+  #centerMessage{position:absolute;left:50%;top:16%;transform:translate(-50%,-50%);text-align:center;opacity:0;transition:opacity .25s ease,transform .25s ease;font-size:15px;letter-spacing:.12em;text-shadow:0 0 20px #8a79ff}
+  #hint{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);font-size:11px;color:#aaa5c7;letter-spacing:.06em;background:rgba(9,8,20,.48);backdrop-filter:blur(10px);padding:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:999px;white-space:nowrap}
+  #vignette{position:absolute;inset:0;background:radial-gradient(circle at center,transparent 48%,rgba(0,0,0,.24) 78%,rgba(0,0,0,.62) 100%)}
+  #menu,#upgrade,#gameover{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%,rgba(54,42,100,.25),rgba(5,6,14,.92) 58%,#05060e 100%);z-index:5}
+  .panel{width:min(760px,92vw);padding:34px;border:1px solid rgba(255,255,255,.1);border-radius:24px;background:linear-gradient(180deg,rgba(30,28,55,.78),rgba(11,11,25,.82));backdrop-filter:blur(20px);box-shadow:0 24px 80px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06)}
+  h1{font-size:clamp(42px,8vw,88px);line-height:.9;margin:0;letter-spacing:-.06em;background:linear-gradient(180deg,#fff,#aaa2ff 65%,#6fe6ff);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 40px rgba(113,100,255,.15)}
+  .sub{font-size:13px;color:#b8b4d0;letter-spacing:.18em;margin:12px 0 26px}
+  .desc{max-width:620px;line-height:1.8;color:#c7c4d9;font-size:14px}
+  .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0 26px}
+  .key{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);font-size:12px;color:#aaa6c8}.key b{color:#fff}
+  button{pointer-events:auto;border:0;border-radius:14px;padding:14px 20px;font-weight:800;letter-spacing:.1em;color:#0b0c16;background:linear-gradient(90deg,#b8a8ff,#79e7ff);cursor:pointer;box-shadow:0 0 26px rgba(121,231,255,.18);transition:.18s transform,.18s filter}
+  button:hover{transform:translateY(-2px);filter:brightness(1.08)}
+  #upgrade{display:none}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:22px}.card{pointer-events:auto;cursor:pointer;padding:22px;border-radius:18px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);transition:.18s}.card:hover{transform:translateY(-4px);background:rgba(255,255,255,.07);border-color:rgba(142,226,255,.35)}.card h3{margin:0 0 8px;color:#fff}.card p{margin:0;font-size:12px;line-height:1.6;color:#aaa6c4}
+  #gameover{display:none;text-align:center}.score{font-size:46px;font-weight:800;margin:14px 0 4px}.small{font-size:12px;color:#aaa6c5;letter-spacing:.08em}
+  #mobile{position:fixed;inset:0;pointer-events:none;display:none;z-index:4}.stick,.action{position:absolute;pointer-events:auto;touch-action:none}.stick{left:24px;bottom:28px;width:118px;height:118px;border-radius:50%;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}.nub{position:absolute;width:44px;height:44px;border-radius:50%;left:37px;top:37px;background:rgba(185,177,255,.25);border:1px solid rgba(255,255,255,.15)}.action{right:28px;bottom:38px;width:78px;height:78px;border-radius:50%;background:rgba(108,227,255,.14);border:1px solid rgba(122,232,255,.25);color:#dfffff;font-size:11px;letter-spacing:.08em;display:flex;align-items:center;justify-content:center}.dash{right:116px;bottom:116px;width:58px;height:58px;background:rgba(182,168,255,.12)}
+  @media(max-width:720px){.controls{grid-template-columns:1fr}.cards{grid-template-columns:1fr}.panel{padding:24px}#hint{display:none}#mobile{display:block}#objective{font-size:10px}.row{grid-template-columns:58px 1fr 46px}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div id="brand">LUMEN TRACE // 흔적의 정원</div>
+  <div id="stats">
+    <div class="row"><span>생명</span><div class="bar"><div id="hpFill" class="fill"></div></div><span id="hpText">100</span></div>
+    <div class="row"><span>빛</span><div class="bar"><div id="energyFill" class="fill"></div></div><span id="energyText">100</span></div>
+  </div>
+  <div id="objective"><b id="stageText">정원 1</b><br><span id="seedText">기억 조각 0 / 5</span><br><span id="eclipseText">월식까지 35초</span></div>
+  <div id="centerMessage"></div>
+  <div id="hint">WASD 이동 · 마우스 드래그로 빛의 흔적 · SPACE 돌진 · R 빛의 파동</div>
+  <div id="vignette"></div>
+</div>
+<div id="menu">
+  <div class="panel">
+    <div class="sub">ORIGINAL BROWSER INDIE GAME</div>
+    <h1>LUMEN<br>TRACE</h1>
+    <div class="sub">흔적의 정원</div>
+    <p class="desc">세상은 어둠에 먹혔고, 당신이 그리는 빛만이 길을 남깁니다. 기억 조각을 모아 봉인문을 열고, 그림자 생명체가 닿기 전에 다음 정원으로 탈출하세요. 빛은 무기이자 길이며, 동시에 한정된 자원입니다.</p>
+    <div class="controls">
+      <div class="key"><b>WASD</b> — 이동</div><div class="key"><b>마우스 드래그</b> — 빛의 흔적 그리기</div>
+      <div class="key"><b>SPACE</b> — 짧은 무적 돌진</div><div class="key"><b>R</b> — 저장된 빛을 폭발시켜 적 밀어내기</div>
+    </div>
+    <button id="startBtn">정원에 들어가기</button>
+  </div>
+</div>
+<div id="upgrade">
+  <div class="panel">
+    <div class="sub">정원이 당신에게 응답합니다</div>
+    <h2 style="margin:0;font-size:34px">하나의 흔적을 선택하세요</h2>
+    <div class="cards" id="upgradeCards"></div>
+  </div>
+</div>
+<div id="gameover">
+  <div class="panel" style="max-width:560px">
+    <div class="sub">THE GARDEN REMEMBERS</div>
+    <h2 id="overTitle" style="font-size:42px;margin:0">흔적이 끊겼습니다</h2>
+    <div class="score" id="finalScore">0</div>
+    <div class="small" id="finalMeta">정원 1 · 기억 조각 0</div>
+    <div style="margin-top:24px"><button id="restartBtn">다시 시작</button></div>
+  </div>
+</div>
+<div id="mobile"><div class="stick" id="stick"><div class="nub" id="nub"></div></div><div class="action dash" id="dashBtn">DASH</div><div class="action" id="pulseBtn">PULSE</div></div>
+<script>
+(() => {
+'use strict';
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const DPR = Math.min(2, devicePixelRatio || 1);
+let W=innerWidth,H=innerHeight;
+function resize(){W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener('resize',resize); resize();
+
+const ui={hp:document.getElementById('hpFill'),energy:document.getElementById('energyFill'),hpText:document.getElementById('hpText'),energyText:document.getElementById('energyText'),seed:document.getElementById('seedText'),stage:document.getElementById('stageText'),eclipse:document.getElementById('eclipseText'),msg:document.getElementById('centerMessage')};
+const TAU=Math.PI*2, clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t, rnd=(a=1,b)=>b===undefined?Math.random()*a:a+Math.random()*(b-a), dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+let audio=null;
+function tone(freq=440,dur=.08,type='sine',vol=.05,slide=0){try{audio ||= new (AudioContext||webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(40,freq+slide),audio.currentTime+dur);g.gain.setValueAtTime(vol,audio.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+dur);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+dur)}catch(e){}}
+
+let running=false,paused=false,time=0,last=0,stage=1,score=0,eclipse=35,eclipseActive=0,shake=0,flash=0;
+const keys={}, mouse={x:W/2,y:H/2,down:false};
+let trails=[],enemies=[],seeds=[],particles=[],decor=[],ripples=[];
+let exitGate=null;
+const world={w:2600,h:1800};
+const cam={x:0,y:0};
+const player={x:world.w/2,y:world.h/2,r:13,hp:100,maxHp:100,energy:100,maxEnergy:100,speed:245,dashCd:0,dashTime:0,inv:0,pulseCd:0,pulsePower:1,trailCost:1,regen:6,magnet:0,seedCount:0,totalSeeds:0};
+
+function reset(all=true){stage=1;score=0;player.maxHp=100;player.maxEnergy=100;player.speed=245;player.pulsePower=1;player.trailCost=1;player.regen=6;player.magnet=0;setupStage();if(all){document.getElementById('gameover').style.display='none';document.getElementById('upgrade').style.display='none'}}
+function setupStage(){
+  trails=[];enemies=[];seeds=[];particles=[];decor=[];ripples=[];exitGate=null;eclipse=Math.max(22,36-stage*2);eclipseActive=0;time=0;
+  player.x=world.w/2;player.y=world.h/2;player.hp=player.maxHp;player.energy=player.maxEnergy;player.seedCount=0;player.dashCd=0;player.pulseCd=0;player.inv=0;
+  for(let i=0;i<170;i++) decor.push({x:rnd(world.w),y:rnd(world.h),r:rnd(1,3.5),a:rnd(.08,.4),h:rnd(180,290),tw:rnd(1,3)});
+  for(let i=0;i<18+stage*3;i++)spawnEnemy(true);
+  const n=4+stage;
+  for(let i=0;i<n;i++){let p=safePoint(340);seeds.push({x:p.x,y:p.y,r:8,phase:rnd(TAU),taken:false})}
+  player.totalSeeds=n;
+  message(`정원 ${stage} — 기억 조각 ${n}개를 모으세요`,1500);
+}
+function safePoint(min=250){let p;for(let t=0;t<50;t++){p={x:rnd(140,world.w-140),y:rnd(140,world.h-140)};if(Math.hypot(p.x-player.x,p.y-player.y)>min)return p}return p}
+function spawnEnemy(initial=false){let p=safePoint(initial?450:600),type=Math.random()<Math.min(.38,.08+stage*.07)?'hunter':'shade';enemies.push({x:p.x,y:p.y,vx:0,vy:0,r:type==='hunter'?18:13,hp:type==='hunter'?3+stage*.35:1.3+stage*.18,maxHp:type==='hunter'?3+stage*.35:1.3+stage*.18,type,stun:0,phase:rnd(TAU),hit:0})}
+function createGate(){let p=safePoint(700);exitGate={x:p.x,y:p.y,r:38,open:true,phase:0};message('봉인문이 열렸습니다. 빛나는 문으로 이동하세요!',2200);tone(520,.35,'sine',.08,500)}
+function message(text,ms=1100){ui.msg.textContent=text;ui.msg.style.opacity=1;ui.msg.style.transform='translate(-50%,-50%) scale(1.03)';clearTimeout(message.t);message.t=setTimeout(()=>{ui.msg.style.opacity=0;ui.msg.style.transform='translate(-50%,-50%) scale(1)'},ms)}
+
+function addTrail(x,y){if(player.energy<=1)return;const last=trails[trails.length-1];if(last && Math.hypot(last.x-x,last.y-y)<16)return;player.energy=Math.max(0,player.energy-1.45*player.trailCost);trails.push({x,y,r:18,life:7.5,max:7.5});if(trails.length>260)trails.shift();if(Math.random()<.7)particles.push({x,y,vx:rnd(-12,12),vy:rnd(-12,12),life:rnd(.2,.6),max:.6,r:rnd(1,3),h:rnd(175,255)})}
+function pulse(){if(!running||paused||player.pulseCd>0||player.energy<22)return;player.energy-=22;player.pulseCd=5.4;shake=7;flash=.35;ripples.push({x:player.x,y:player.y,r:0,life:.65,max:.65});tone(220,.22,'sine',.08,650);for(const e of enemies){let d=dist(player,e);if(d<250*player.pulsePower){let nx=(e.x-player.x)/(d||1),ny=(e.y-player.y)/(d||1);e.vx+=nx*520;e.vy+=ny*520;e.stun=.8;e.hp-=1.1*player.pulsePower;if(e.hp<=0)killEnemy(e)}}}
+function dash(){if(!running||paused||player.dashCd>0)return;let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);if(!dx&&!dy){dx=Math.cos(Math.atan2(mouse.y-H/2,mouse.x-W/2));dy=Math.sin(Math.atan2(mouse.y-H/2,mouse.x-W/2))}let l=Math.hypot(dx,dy)||1;player.dashDir={x:dx/l,y:dy/l};player.dashTime=.17;player.dashCd=1.35;player.inv=.24;for(let i=0;i<9;i++)particles.push({x:player.x,y:player.y,vx:rnd(-70,70),vy:rnd(-70,70),life:.35,max:.35,r:rnd(1,4),h:240});tone(170,.07,'sawtooth',.035,160)}
+function killEnemy(e){const i=enemies.indexOf(e);if(i>=0)enemies.splice(i,1);score+=e.type==='hunter'?180:90;for(let j=0;j<12;j++)particles.push({x:e.x,y:e.y,vx:rnd(-100,100),vy:rnd(-100,100),life:rnd(.3,.8),max:.8,r:rnd(1,4),h:rnd(270,335)});tone(e.type==='hunter'?90:130,.1,'triangle',.035,-40)}
+
+function update(dt){
+  if(!running||paused)return;time+=dt;shake*=Math.pow(.03,dt);flash=Math.max(0,flash-dt*1.8);eclipse-=dt;if(eclipse<=0&&eclipseActive<=0){eclipseActive=6.5;eclipse=Math.max(20,34-stage*2.2);message('월식 — 그림자들이 깨어납니다',1400);tone(70,.6,'sawtooth',.05,30)}eclipseActive=Math.max(0,eclipseActive-dt);
+  player.dashCd=Math.max(0,player.dashCd-dt);player.pulseCd=Math.max(0,player.pulseCd-dt);player.inv=Math.max(0,player.inv-dt);
+  player.energy=clamp(player.energy+player.regen*dt,0,player.maxEnergy);
+  let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0)+mobileAxis.x,dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)+mobileAxis.y;
+  let l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}
+  let sp=player.speed;if(player.dashTime>0){player.dashTime-=dt;dx=player.dashDir.x;dy=player.dashDir.y;sp=860}
+  player.x=clamp(player.x+dx*sp*dt,30,world.w-30);player.y=clamp(player.y+dy*sp*dt,30,world.h-30);
+  cam.x=lerp(cam.x,player.x-W/2,1-Math.pow(.0001,dt));cam.y=lerp(cam.y,player.y-H/2,1-Math.pow(.0001,dt));cam.x=clamp(cam.x,0,Math.max(0,world.w-W));cam.y=clamp(cam.y,0,Math.max(0,world.h-H));
+  if(mouse.down){const wx=mouse.x+cam.x,wy=mouse.y+cam.y;addTrail(wx,wy)}
+  for(let i=trails.length-1;i>=0;i--){trails[i].life-=dt;if(trails[i].life<=0)trails.splice(i,1)}
+  for(const s of seeds){if(s.taken)continue;s.phase+=dt*2.5;let d=dist(player,s);if(player.magnet&&d<120*player.magnet){s.x=lerp(s.x,player.x,dt*3);s.y=lerp(s.y,player.y,dt*3)}if(d<26){s.taken=true;player.seedCount++;player.energy=clamp(player.energy+28,0,player.maxEnergy);score+=250;flash=.18;tone(660,.12,'sine',.06,420);message(`기억 조각 ${player.seedCount} / ${player.totalSeeds}`,800);for(let j=0;j<18;j++)particles.push({x:s.x,y:s.y,vx:rnd(-90,90),vy:rnd(-90,90),life:rnd(.4,1),max:1,r:rnd(1,4),h:rnd(160,220)});if(player.seedCount===player.totalSeeds&&!exitGate)createGate()}}
+  if(exitGate){exitGate.phase+=dt;if(dist(player,exitGate)<48){score+=1000*stage;stageComplete()}}
+  const speedMult=1+stage*.08+(eclipseActive>0?.75:0);
+  for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];e.phase+=dt*(e.type==='hunter'?4:2);e.hit=Math.max(0,e.hit-dt);e.stun=Math.max(0,e.stun-dt);let d=dist(player,e);let lightForce=0,lnx=0,lny=0;
+    for(let t=trails.length-1,checks=0;t>=0&&checks<28;t-=Math.max(1,Math.floor(trails.length/28)),checks++){const tr=trails[t],dd=Math.hypot(e.x-tr.x,e.y-tr.y);if(dd<72){const f=(1-dd/72)*(tr.life/tr.max);lightForce+=f;lnx+=(e.x-tr.x)/(dd||1)*f;lny+=(e.y-tr.y)/(dd||1)*f;if(dd<30){e.hp-=dt*.9*(e.type==='hunter'?.7:1);e.hit=.08}}}
+    if(e.hp<=0){killEnemy(e);i--;continue}
+    let nx=(player.x-e.x)/(d||1),ny=(player.y-e.y)/(d||1);let desired=e.stun>0?0:(e.type==='hunter'?128:92)*speedMult;
+    if(lightForce>.15){let q=Math.hypot(lnx,lny)||1;nx=lnx/q;ny=lny/q;desired=160+lightForce*110}
+    e.vx=lerp(e.vx,nx*desired,1-Math.pow(.02,dt));e.vy=lerp(e.vy,ny*desired,1-Math.pow(.02,dt));e.x=clamp(e.x+e.vx*dt,20,world.w-20);e.y=clamp(e.y+e.vy*dt,20,world.h-20);
+    if(d<player.r+e.r+5&&player.inv<=0){player.hp-=e.type==='hunter'?17:10;player.inv=.75;shake=12;flash=.42;let q=Math.hypot(e.x-player.x,e.y-player.y)||1;e.vx+=(e.x-player.x)/q*350;e.vy+=(e.y-player.y)/q*350;tone(95,.12,'square',.05,-30);if(player.hp<=0){endGame(false);return}}
+  }
+  const maxEnemies=18+stage*4+(eclipseActive>0?10:0);if(enemies.length<maxEnemies&&Math.random()<dt*(.55+stage*.12))spawnEnemy(false);
+  for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.12,dt);p.vy*=Math.pow(.12,dt);if(p.life<=0)particles.splice(i,1)}
+  for(let i=ripples.length-1;i>=0;i--){let r=ripples[i];r.life-=dt;r.r+=430*dt;if(r.life<=0)ripples.splice(i,1)}
+  ui.hp.style.width=(player.hp/player.maxHp*100)+'%';ui.energy.style.width=(player.energy/player.maxEnergy*100)+'%';ui.hpText.textContent=Math.ceil(player.hp);ui.energyText.textContent=Math.ceil(player.energy);ui.seed.textContent=`기억 조각 ${player.seedCount} / ${player.totalSeeds}`;ui.stage.textContent=`정원 ${stage}`;ui.eclipse.textContent=eclipseActive>0?`월식 ${eclipseActive.toFixed(1)}초`:`월식까지 ${Math.ceil(eclipse)}초`;
+}
+
+function stageComplete(){paused=true;running=false;tone(440,.3,'sine',.07,520);if(stage>=5){endGame(true);return}showUpgrades()}
+const upgrades=[
+  {t:'잔광',d:'빛 최대치 +30, 자연 회복 +1.5',f(){player.maxEnergy+=30;player.regen+=1.5}},
+  {t:'가벼운 발',d:'이동 속도 +12%',f(){player.speed*=1.12}},
+  {t:'강한 파동',d:'빛의 파동 범위·위력 +22%',f(){player.pulsePower*=1.22}},
+  {t:'얇은 선',d:'빛의 흔적 에너지 소모 -18%',f(){player.trailCost*=.82}},
+  {t:'기억 자석',d:'가까운 기억 조각이 당신에게 끌려옵니다',f(){player.magnet=Math.min(2,player.magnet+1)}},
+  {t:'유리 심장',d:'최대 생명 +25',f(){player.maxHp+=25}},
+  {t:'회광',d:'빛 자연 회복 +3',f(){player.regen+=3}},
+  {t:'긴 호흡',d:'빛 최대치 +18, 생명 +12',f(){player.maxEnergy+=18;player.maxHp+=12}}
+];
+function showUpgrades(){const wrap=document.getElementById('upgradeCards');wrap.innerHTML='';let pool=[...upgrades].sort(()=>Math.random()-.5).slice(0,3);for(const u of pool){const el=document.createElement('div');el.className='card';el.innerHTML=`<h3>${u.t}</h3><p>${u.d}</p>`;el.onclick=()=>{u.f();stage++;document.getElementById('upgrade').style.display='none';setupStage();paused=false;running=true;last=performance.now()};wrap.appendChild(el)}document.getElementById('upgrade').style.display='flex'}
+function endGame(win){running=false;paused=true;document.getElementById('gameover').style.display='flex';document.getElementById('overTitle').textContent=win?'정원을 통과했습니다':'흔적이 끊겼습니다';document.getElementById('finalScore').textContent=score.toLocaleString();document.getElementById('finalMeta').textContent=`정원 ${stage} · 기억 조각 ${player.seedCount} · 최고 목표 정원 5`;tone(win?740:120,.6,win?'sine':'triangle',.06,win?500:-50)}
+
+function glowCircle(x,y,r,h=200,a=1){const g=ctx.createRadialGradient(x,y,0,x,y,r*3.4);g.addColorStop(0,`hsla(${h},100%,76%,${.35*a})`);g.addColorStop(.35,`hsla(${h},100%,66%,${.12*a})`);g.addColorStop(1,`hsla(${h},100%,50%,0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*3.4,0,TAU);ctx.fill()}
+function draw(){
+  ctx.save();ctx.clearRect(0,0,W,H);const sx=(Math.random()-.5)*shake,sy=(Math.random()-.5)*shake;ctx.translate(sx,sy);
+  let grd=ctx.createLinearGradient(0,0,W,H);grd.addColorStop(0,'#070816');grd.addColorStop(.55,'#0a0b18');grd.addColorStop(1,'#05060e');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+  ctx.save();ctx.translate(-cam.x,-cam.y);
+  // world grid and mist
+  ctx.strokeStyle='rgba(160,145,255,.025)';ctx.lineWidth=1;for(let x=0;x<world.w;x+=120){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,world.h);ctx.stroke()}for(let y=0;y<world.h;y+=120){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(world.w,y);ctx.stroke()}
+  for(const d of decor){let a=d.a*(.7+.3*Math.sin(time*d.tw+d.x));ctx.fillStyle=`hsla(${d.h},80%,75%,${a})`;ctx.fillRect(d.x,d.y,d.r,d.r)}
+  // trails underglow and core
+  ctx.lineCap='round';ctx.lineJoin='round';if(trails.length>1){ctx.shadowBlur=20;ctx.shadowColor='rgba(117,225,255,.8)';for(let i=1;i<trails.length;i++){if(Math.hypot(trails[i].x-trails[i-1].x,trails[i].y-trails[i-1].y)>85)continue;const a=Math.min(trails[i-1].life,trails[i].life)/7.5;ctx.strokeStyle=`rgba(125,224,255,${.24*a})`;ctx.lineWidth=14;ctx.beginPath();ctx.moveTo(trails[i-1].x,trails[i-1].y);ctx.lineTo(trails[i].x,trails[i].y);ctx.stroke();ctx.strokeStyle=`rgba(220,248,255,${.72*a})`;ctx.lineWidth=2.2;ctx.stroke()}ctx.shadowBlur=0}
+  for(const tr of trails){const a=tr.life/tr.max;glowCircle(tr.x,tr.y,7,190,a*.65)}
+  for(const s of seeds){if(s.taken)continue;let pulse=1+Math.sin(s.phase)*.18;glowCircle(s.x,s.y,12*pulse,188,.9);ctx.save();ctx.translate(s.x,s.y);ctx.rotate(s.phase*.35);ctx.strokeStyle='rgba(214,251,255,.9)';ctx.lineWidth=1.4;ctx.beginPath();for(let i=0;i<4;i++){let a=Math.PI/4+i*Math.PI/2;let rr=i%2?7:12;let x=Math.cos(a)*rr,y=Math.sin(a)*rr;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.stroke();ctx.restore()}
+  if(exitGate){glowCircle(exitGate.x,exitGate.y,46,255,.9);ctx.save();ctx.translate(exitGate.x,exitGate.y);ctx.rotate(time*.32);ctx.strokeStyle='rgba(200,183,255,.75)';ctx.lineWidth=3;for(let k=0;k<3;k++){ctx.beginPath();ctx.arc(0,0,24+k*8,0,TAU*(.62+k*.11));ctx.stroke();ctx.rotate(2.1)}ctx.restore()}
+  for(const r of ripples){ctx.strokeStyle=`rgba(155,227,255,${r.life/r.max*.5})`;ctx.lineWidth=5*(r.life/r.max)+1;ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,TAU);ctx.stroke()}
+  for(const e of enemies){let on=e.hit>0;glowCircle(e.x,e.y,e.r*1.2,on?350:e.type==='hunter'?315:280,on?.55:.18);ctx.save();ctx.translate(e.x,e.y);ctx.rotate(Math.sin(e.phase*.7)*.18);ctx.fillStyle=on?'#ffe7fa':e.type==='hunter'?'rgba(214,88,255,.82)':'rgba(130,94,190,.72)';ctx.shadowBlur=eclipseActive>0?22:9;ctx.shadowColor=e.type==='hunter'?'#d34fff':'#7c4fd0';ctx.beginPath();if(e.type==='hunter'){for(let i=0;i<8;i++){let a=i/8*TAU,rr=i%2?e.r*.65:e.r*1.25;let x=Math.cos(a)*rr,y=Math.sin(a)*rr;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath()}else{ctx.moveTo(0,-e.r*1.2);ctx.quadraticCurveTo(e.r*1.1,0,0,e.r*1.3);ctx.quadraticCurveTo(-e.r*1.1,0,0,-e.r*1.2)}ctx.fill();ctx.shadowBlur=0;ctx.restore()}
+  for(const p of particles){ctx.fillStyle=`hsla(${p.h},100%,75%,${p.life/p.max})`;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,TAU);ctx.fill()}
+  // player
+  glowCircle(player.x,player.y,19,195,.9);ctx.save();ctx.translate(player.x,player.y);let ang=Math.atan2(mouse.y-H/2,mouse.x-W/2);ctx.rotate(ang);ctx.fillStyle=player.inv>0&&Math.floor(time*20)%2?'rgba(255,255,255,.25)':'#e9feff';ctx.shadowBlur=16;ctx.shadowColor='#9ff7ff';ctx.beginPath();ctx.moveTo(17,0);ctx.lineTo(-10,-9);ctx.lineTo(-5,0);ctx.lineTo(-10,9);ctx.closePath();ctx.fill();ctx.shadowBlur=0;ctx.restore();
+  ctx.restore();
+  // local darkness masks around player & strong lights
+  ctx.fillStyle=eclipseActive>0?'rgba(4,2,12,.30)':'rgba(3,4,12,.18)';ctx.fillRect(0,0,W,H);
+  const vg=ctx.createRadialGradient(W/2,H/2,45,W/2,H/2,Math.min(W,H)*.52);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(.72,'rgba(0,0,0,.06)');vg.addColorStop(1,'rgba(0,0,0,.34)');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  if(flash>0){ctx.fillStyle=`rgba(205,240,255,${flash*.35})`;ctx.fillRect(0,0,W,H)}
+  ctx.restore();
+}
+function loop(t){const dt=Math.min(.033,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.code==='Space'){e.preventDefault();dash()}if(e.key.toLowerCase()==='r')pulse()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});canvas.addEventListener('mousedown',e=>{mouse.down=true;mouse.x=e.clientX;mouse.y=e.clientY;if(audio&&audio.state==='suspended')audio.resume()});addEventListener('mouseup',()=>mouse.down=false);
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+document.getElementById('startBtn').onclick=()=>{document.getElementById('menu').style.display='none';reset();running=true;paused=false;last=performance.now();tone(330,.18,'sine',.06,330)};
+document.getElementById('restartBtn').onclick=()=>{reset();running=true;paused=false;last=performance.now()};
+
+const mobileAxis={x:0,y:0};const stick=document.getElementById('stick'),nub=document.getElementById('nub');let touchId=null;
+stick.addEventListener('pointerdown',e=>{touchId=e.pointerId;stick.setPointerCapture(touchId)});stick.addEventListener('pointermove',e=>{if(e.pointerId!==touchId)return;const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,l=Math.hypot(dx,dy),m=Math.min(36,l),nx=l?dx/l:0,ny=l?dy/l:0;mobileAxis.x=nx*(m/36);mobileAxis.y=ny*(m/36);nub.style.transform=`translate(${nx*m}px,${ny*m}px)`});function resetStick(){mobileAxis.x=mobileAxis.y=0;nub.style.transform='translate(0,0)';touchId=null}stick.addEventListener('pointerup',resetStick);stick.addEventListener('pointercancel',resetStick);document.getElementById('dashBtn').addEventListener('pointerdown',e=>{e.preventDefault();dash()});document.getElementById('pulseBtn').addEventListener('pointerdown',e=>{e.preventDefault();pulse()});
+canvas.addEventListener('touchstart',e=>{if(e.touches.length){mouse.down=true;mouse.x=e.touches[0].clientX;mouse.y=e.touches[0].clientY}},{passive:true});canvas.addEventListener('touchmove',e=>{if(e.touches.length){mouse.x=e.touches[0].clientX;mouse.y=e.touches[0].clientY}},{passive:true});canvas.addEventListener('touchend',()=>mouse.down=false,{passive:true});
+})();
+</script>
+</body>
+</html>
