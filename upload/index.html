@@ -314,6 +314,7 @@ function setReplace(slug) {
   updateSubmit();
 }
 ['sid', 'author'].forEach(id => $(id).addEventListener('input', scheduleMine));
+addEventListener('focus', scheduleMine);  // 오래 열어둔 화면이면 목록 새로 받기
 
 // ---------- 선생님: 전체 작품 관리 ----------
 async function renderAdmin() {
@@ -358,11 +359,13 @@ $('submit').onclick = async () => {
   showMsg($('msg'), '⏳ 올리는 중… 창을 닫지 마세요!');
   try {
     if (replacing) {
+      // 그사이 선생님이 내린 작품이면 되살리지 않고 멈춤
+      if (!(await loadWorks()).list.some(x => x.slug === slug)) throw Object.assign(new Error('removed'), { removed: true });
       await putFile(path, bytesToB64(fileBytes), `update work: ${title} by ${sid} ${author}`, await fileSha(path));
       await updateWorks(list => {
         const w = list.find(x => x.slug === slug);
-        if (w) Object.assign(w, { title, desc, emoji, updatedAt: now });
-        else list.push({ slug, title, sid, author, desc, emoji, createdAt: now });
+        if (!w) throw Object.assign(new Error('removed'), { removed: true });
+        Object.assign(w, { title, desc, emoji, updatedAt: now });
         return list;
       }, `update work: ${title}`);
     } else {
@@ -371,7 +374,12 @@ $('submit').onclick = async () => {
     }
   } catch (e) {
     if (e.status === 401) { setToken(''); refreshTokenUI(); }
-    showMsg($('msg'), '❌ ' + errorText(e), 'err');
+    if (e.removed) {
+      showMsg($('msg'), '🚫 이 작품은 선생님이 내린 작품이라 바꿀 수 없어요. 선생님께 여쭤보세요.', 'err');
+      loadMine();
+    } else {
+      showMsg($('msg'), '❌ ' + errorText(e), 'err');
+    }
     updateSubmit();
     return;
   }
