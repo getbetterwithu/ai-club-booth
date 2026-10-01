@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Wave Survival - Piercing & Timer Update</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body { background-color: #eef2f5; color: #1a1a2e; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #game-wrapper { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+
+        .info-panel { position: absolute; top: 20px; left: 20px; pointer-events: none; font-size: 15px; font-weight: bold; color: #0055ff; text-shadow: 0 0 4px rgba(255,255,255,0.8); z-index: 10; }
+        .hearts-panel { font-size: 28px; color: #ff1a53; text-shadow: 0 0 5px rgba(255,255,255,0.8); margin-top: 5px; transition: transform 0.1s; }
+        .hearts-panel.hit { transform: scale(1.4); }
+        .score-panel { position: absolute; top: 20px; right: 20px; pointer-events: none; text-align: right; z-index: 10; }
+        .score-panel .wave { font-size: 22px; font-weight: bold; color: #009944; text-shadow: 0 0 4px rgba(255,255,255,0.8); }
+        .score-panel .kills { font-size: 15px; font-weight: bold; color: #e60039; margin-top: 2px; }
+        .score-panel .score { font-size: 18px; font-weight: bold; color: #0055ff; margin-top: 2px; }
+
+        .controls-guide {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.85); border: 1px solid #0055ff; border-radius: 8px;
+            padding: 8px 16px; font-size: 12px; color: #333; text-align: center;
+            pointer-events: none; z-index: 10; backdrop-filter: blur(4px); box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .controls-guide span { color: #0055ff; font-weight: bold; }
+
+        .crosshair {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px; height: 10px;
+            pointer-events: none; z-index: 5;
+        }
+        .crosshair::before, .crosshair::after {
+            content: ''; position: absolute; background: rgba(0, 85, 255, 0.9);
+        }
+        .crosshair::before { top: 4px; left: -8px; width: 26px; height: 2px; }
+        .crosshair::after { top: -8px; left: 4px; width: 2px; height: 26px; }
+
+        .overlay-screen {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(240, 244, 248, 0.92); backdrop-filter: blur(8px);
+            flex-direction: column; justify-content: center; align-items: center; z-index: 200;
+        }
+        .overlay-screen h1 { font-size: 48px; color: #0055ff; text-shadow: 0 2px 10px rgba(0,85,255,0.2); margin-bottom: 15px; }
+        .overlay-screen p { font-size: 16px; color: #222; margin-bottom: 10px; text-align: center; line-height: 1.5; }
+        .action-btn {
+            padding: 12px 28px; font-size: 18px; font-weight: bold; color: #fff;
+            background-color: #0055ff; border: none; border-radius: 6px; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,85,255,0.3); transition: transform 0.1s, background-color 0.2s; margin-top: 15px;
+        }
+        .action-btn:hover { transform: scale(1.05); background-color: #0040cc; }
+
+        .settings-container {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ccd6e0;
+            border-radius: 8px;
+            padding: 18px 25px;
+            margin: 15px 0;
+            width: 380px;
+            max-height: 55vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .setting-item {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; font-size: 14px; color: #1a1a2e;
+        }
+        .setting-item label { font-weight: bold; }
+        .setting-item input[type="range"] {
+            width: 130px; cursor: pointer; accent-color: #0055ff;
+        }
+        .setting-item input[type="file"] {
+            font-size: 12px; width: 170px;
+        }
+        .key-bind-btn {
+            background: #eef2f8; border: 1px solid #0055ff; color: #0055ff;
+            padding: 4px 10px; border-radius: 4px; cursor: pointer; min-width: 80px;
+            text-align: center; font-size: 13px; font-weight: bold; transition: all 0.2s;
+        }
+        .key-bind-btn:hover { background: #0055ff; color: #fff; }
+        .key-bind-btn.waiting {
+            background: #ff1a53; color: #fff; border-color: #ff1a53;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { opacity: 0.7; }
+            to { opacity: 1; }
+        }
+
+        #damage-flash {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(255, 0, 85, 0.1) 0%, rgba(255, 0, 0, 0.6) 100%);
+            pointer-events: none; opacity: 0;
+            transition: opacity 0.05s ease-out; z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+    <div class="crosshair"></div>
+    <div id="damage-flash"></div>
+
+    <div class="info-panel">
+        <div>3D FPS - LIGHT THEME</div>
+        <div class="hearts-panel" id="heartsPanel">♥</div>
+    </div>
+
+    <div class="score-panel">
+        <div class="wave" id="wavePanel">WAVE 1 / 10</div>
+        <div class="kills" id="killsPanel">PROGRESS: 0 / 15</div>
+        <div class="score" id="scorePanel">SCORE: 0</div>
+    </div>
+
+    <div class="controls-guide" id="hudControlsGuide">
+        <span>W/S</span> Forward/Back | <span>A/D</span> Strafe | <span>←/→</span> Turn Camera | <span>Space</span> Attack | <span>Shift</span> Dodge
+    </div>
+
+    <!-- 스타트 화면 -->
+    <div id="start-screen" class="overlay-screen" style="display: flex;">
+        <h1>3D WAVE SURVIVAL</h1>
+        <p>밝은 테마의 3D FPS 게임입니다.<br>적들이 전방 멀리서 접근합니다. 관통 사격으로 일타쌍피 점수를 노려보세요!</p>
+        <p id="startKeyGuide" style="color: #0055ff; font-size: 14px; margin-top: 10px;">
+            <b>[키보드 조작법]</b><br>
+            • 이동: W, A, S, D<br>
+            • 시점 회전: 좌/우 방향키<br>
+            • 사격/공격: Space (관통 사격 지원)<br>
+            • 회피: Shift (1초 무적)<br>
+            • 일시정지: ESC | 재시작: R
+        </p>
+        <button class="action-btn" onclick="startGame()">게임 시작 (SPACE)</button>
+    </div>
+
+    <!-- 웨이브 클리어 화면 -->
+    <div id="wave-clear-screen" class="overlay-screen">
+        <h1 id="waveClearTitle" style="color: #009944;">WAVE 1 CLEARED!</h1>
+        <p id="waveClearDesc">새로운 하트가 1개 추가되었습니다!</p>
+        <button class="action-btn" style="background-color: #009944;" onclick="startNextWave()">다음 웨이브 시작 (ENTER)</button>
+    </div>
+
+    <!-- 게임 오버 화면 -->
+    <div id="game-over-screen" class="overlay-screen">
+        <h1 style="color: #e60039;">GAME OVER</h1>
+        <p id="finalWave" style="color: #009944; font-size: 18px; font-weight: bold;"></p>
+        <p id="finalKills">TOTAL KILLS: 0</p>
+        <p id="finalScore" style="color: #0055ff; font-weight: bold;">FINAL SCORE: 0</p>
+        <button class="action-btn" onclick="showStartScreen()">다시 시작 (R)</button>
+    </div>
+
+    <!-- 승리 화면 -->
+    <div id="victory-screen" class="overlay-screen">
+        <h1 style="color: #009944;">VICTORY!</h1>
+        <p>축하합니다! 모든 Wave를 클리어했습니다.</p>
+        <p id="victoryKills">TOTAL KILLS: 0</p>
+        <p id="victoryScore" style="color: #0055ff; font-weight: bold;">FINAL SCORE: 0</p>
+        <button class="action-btn" onclick="showStartScreen()">다시 시작 (R)</button>
+    </div>
+
+    <!-- 일시정지 화면 -->
+    <div id="pause-screen" class="overlay-screen">
+        <h1>PAUSED</h1>
+        
+        <div class="settings-container">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 12px; border-bottom: 2px solid #0055ff; padding-bottom: 5px; color: #0055ff;">
+                게임 및 텍스처 설정
+            </div>
+            
+            <div class="setting-item">
+                <label for="enemyTextureInput">적 이미지 텍스처:</label>
+                <input type="file" id="enemyTextureInput" accept="image/*">
+            </div>
+
+            <div class="setting-item">
+                <label for="sensitivitySlider">시야 회전 감도:</label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="range" id="sensitivitySlider" min="1" max="20" value="8">
+                    <span id="sensitivityValue" style="color: #0055ff; font-weight: bold; width: 20px;">8</span>
+                </div>
+            </div>
+
+            <div style="text-align: center; font-weight: bold; margin: 15px 0 10px 0; border-bottom: 2px solid #0055ff; padding-bottom: 5px; color: #0055ff;">
+                키 바인딩 변경
+            </div>
+            <div class="setting-item">
+                <label>전진 (Forward):</label>
+                <button class="key-bind-btn" onclick="listenForKey('forward', this)">W</button>
+            </div>
+            <div class="setting-item">
+                <label>후진 (Backward):</label>
+                <button class="key-bind-btn" onclick="listenForKey('backward', this)">S</button>
+            </div>
+            <div class="setting-item">
+                <label>좌 이동 (Strafe Left):</label>
+                <button class="key-bind-btn" onclick="listenForKey('left', this)">A</button>
+            </div>
+            <div class="setting-item">
+                <label>우 이동 (Strafe Right):</label>
+                <button class="key-bind-btn" onclick="listenForKey('right', this)">D</button>
+            </div>
+            <div class="setting-item">
+                <label>좌 회전 (Turn Left):</label>
+                <button class="key-bind-btn" onclick="listenForKey('turnLeft', this)">ArrowLeft</button>
+            </div>
+            <div class="setting-item">
+                <label>우 회전 (Turn Right):</label>
+                <button class="key-bind-btn" onclick="listenForKey('turnRight', this)">ArrowRight</button>
+            </div>
+            <div class="setting-item">
+                <label>공격 (Attack):</label>
+                <button class="key-bind-btn" onclick="listenForKey('attack', this)">Space</button>
+            </div>
+            <div class="setting-item">
+                <label>회피 (Dodge):</label>
+                <button class="key-bind-btn" onclick="listenForKey('dodge', this)">Shift</button>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 15px; margin-top: 5px;">
+            <button class="action-btn" onclick="togglePause()">RESUME (ESC)</button>
+            <button class="action-btn" style="background-color: #e60039;" onclick="showStartScreen()">RESTART (R)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const wavePanel = document.getElementById('wavePanel');
+    const killsPanel = document.getElementById('killsPanel');
+    const scorePanel = document.getElementById('scorePanel');
+    const heartsPanel = document.getElementById('heartsPanel');
+    const damageFlash = document.getElementById('damage-flash');
+
+    const startScreen = document.getElementById('start-screen');
+    const waveClearScreen = document.getElementById('wave-clear-screen');
+    const waveClearTitle = document.getElementById('waveClearTitle');
+    const waveClearDesc = document.getElementById('waveClearDesc');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const victoryScreen = document.getElementById('victory-screen');
+    const pauseScreen = document.getElementById('pause-screen');
+    const finalWave = document.getElementById('finalWave');
+    const finalKills = document.getElementById('finalKills');
+    const finalScore = document.getElementById('finalScore');
+    const victoryKills = document.getElementById('victoryKills');
+    const victoryScore = document.getElementById('victoryScore');
+
+    const sensitivitySlider = document.getElementById('sensitivitySlider');
+    const sensitivityValue = document.getElementById('sensitivityValue');
+    const enemyTextureInput = document.getElementById('enemyTextureInput');
+
+    let customEnemyImage = null;
+
+    enemyTextureInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    customEnemyImage = img;
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    let keyBindings = {
+        forward: 'w',
+        backward: 's',
+        left: 'a',
+        right: 'd',
+        turnLeft: 'ArrowLeft',
+        turnRight: 'ArrowRight',
+        attack: ' ',
+        dodge: 'Shift'
+    };
+
+    let waitingForKeyAction = null;
+    let activeKeyBindButton = null;
+
+    // Sound Engine
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new AudioContext();
+    }
+
+    function playSound(type) {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'attack') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(800, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.12);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+            osc.start(now); osc.stop(now + 0.12);
+        } else if (type === 'pierce') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(1200, now + 0.25);
+            gain.gain.setValueAtTime(0.5, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+            osc.start(now); osc.stop(now + 0.25);
+        } else if (type === 'dodge') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.2);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'hit') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+            gain.gain.setValueAtTime(0.4, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+            osc.start(now); osc.stop(now + 0.1);
+        } else if (type === 'playerHit') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(20, now + 0.4);
+            gain.gain.setValueAtTime(0.8, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+            osc.start(now); osc.stop(now + 0.4);
+        } else if (type === 'heal') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(800, now + 0.25);
+            gain.gain.setValueAtTime(0.4, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+            osc.start(now); osc.stop(now + 0.25);
+        } else if (type === 'waveClear') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(1200, now + 0.4);
+            gain.gain.setValueAtTime(0.4, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+            osc.start(now); osc.stop(now + 0.4);
+        } else if (type === 'gameover') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.linearRampToValueAtTime(50, now + 0.6);
+            gain.gain.setValueAtTime(0.5, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.6);
+            osc.start(now); osc.stop(now + 0.6);
+        }
+    }
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const MAP_SIZE = 16;
+    const TILE_SIZE = 64;
+    const map = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    const player = {
+        x: 8 * TILE_SIZE,
+        y: 8 * TILE_SIZE,
+        angle: 0,
+        fov: Math.PI / 3,
+        moveSpeed: 3.5,
+        rotSpeed: 0.008,
+        isInvincible: false,
+        weaponRecoil: 0
+    };
+
+    let screenShake = 0;
+    let globalZBuffer = [];
+    let particles = [];
+    let popups = [];
+
+    const WAVE_CONFIG = Array.from({ length: 10 }, (_, index) => {
+        const n = index + 1;
+        return {
+            wave: n,
+            targetKills: [15, 20, 25, 30, 35, 40, 45, 50, 60, 80][index],
+            speed: 1.2 + n * 0.2,
+            maxEnemies: [6, 8, 10, 12, 14, 16, 18, 20, 22, 25][index],
+            spawnInterval: Math.max(300, 1200 - n * 80)
+        };
+    });
+
+    let currentWaveIndex = 0;
+    let waveKills = 0;
+    let totalKills = 0;
+    let totalScore = 0;
+    let maxHp = 1;
+    let currentHp = 1;
+
+    let isGameStarted = false;
+    let isGameOver = false;
+    let isPaused = false;
+    let isWaveClearing = false;
+
+    let spawnInterval = null;
+    let heartItemInterval = null;
+
+    const attackCooldown = 300;
+    const dodgeCooldown = 8000;
+    let canAttack = true;
+    let canDodge = true;
+
+    const keys = {
+        w: false, s: false, a: false, d: false,
+        left: false, right: false
+    };
+
+    let enemies = [];
+    let heartItems = [];
+
+    function formatKeyDisplay(key) {
+        if (key === ' ') return 'Space';
+        if (key === 'ArrowLeft') return '←';
+        if (key === 'ArrowRight') return '→';
+        if (key === 'ArrowUp') return '↑';
+        if (key === 'ArrowDown') return '↓';
+        return key.length === 1 ? key.toUpperCase() : key;
+    }
+
+    function updateKeyButtonsUI() {
+        const buttons = document.querySelectorAll('.key-bind-btn');
+        const actions = ['forward', 'backward', 'left', 'right', 'turnLeft', 'turnRight', 'attack', 'dodge'];
+        buttons.forEach((btn, index) => {
+            const action = actions[index];
+            if (action && keyBindings[action]) {
+                btn.innerText = formatKeyDisplay(keyBindings[action]);
+            }
+        });
+
+        const attackKeyStr = formatKeyDisplay(keyBindings.attack);
+        const dodgeKeyStr = formatKeyDisplay(keyBindings.dodge);
+        const fwdStr = formatKeyDisplay(keyBindings.forward);
+        const bwdStr = formatKeyDisplay(keyBindings.backward);
+        const lStr = formatKeyDisplay(keyBindings.left);
+        const rStr = formatKeyDisplay(keyBindings.right);
+        const turnLStr = formatKeyDisplay(keyBindings.turnLeft);
+        const turnRStr = formatKeyDisplay(keyBindings.turnRight);
+
+        document.getElementById('hudControlsGuide').innerHTML = 
+            `<span>${fwdStr}/${bwdStr}</span> Fwd/Back | <span>${lStr}/${rStr}</span> Strafe | <span>${turnLStr}/${turnRStr}</span> Turn | <span>${attackKeyStr}</span> Attack | <span>${dodgeKeyStr}</span> Dodge`;
+
+        document.getElementById('startKeyGuide').innerHTML = 
+            `<b>[키보드 조작법]</b><br>` +
+            `• 이동: ${fwdStr}, ${lStr}, ${bwdStr}, ${rStr}<br>` +
+            `• 시점 회전: ${turnLStr} / ${turnRStr}<br>` +
+            `• 사격/공격: ${attackKeyStr} (관통 사격 지원)<br>` +
+            `• 회피: ${dodgeKeyStr} (1초 무적)<br>` +
+            `• 일시정지: ESC | 재시작: R`;
+    }
+
+    function listenForKey(action, buttonEl) {
+        if (waitingForKeyAction) {
+            activeKeyBindButton.classList.remove('waiting');
+            activeKeyBindButton.innerText = formatKeyDisplay(keyBindings[waitingForKeyAction]);
+        }
+        waitingForKeyAction = action;
+        activeKeyBindButton = buttonEl;
+        buttonEl.classList.add('waiting');
+        buttonEl.innerText = '입력 대기...';
+    }
+
+    sensitivitySlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        sensitivityValue.innerText = val;
+        player.rotSpeed = 0.001 * val;
+        saveSettings();
+    });
+
+    function saveSettings() {
+        localStorage.setItem('fps_sensitivity', sensitivitySlider.value);
+        localStorage.setItem('fps_keybindings', JSON.stringify(keyBindings));
+    }
+
+    function loadSettings() {
+        const savedSens = localStorage.getItem('fps_sensitivity');
+        if (savedSens) {
+            sensitivitySlider.value = savedSens;
+            sensitivityValue.innerText = savedSens;
+            player.rotSpeed = 0.001 * parseInt(savedSens, 10);
+        }
+        const savedKeys = localStorage.getItem('fps_keybindings');
+        if (savedKeys) {
+            try {
+                keyBindings = { ...keyBindings, ...JSON.parse(savedKeys) };
+            } catch (e) {}
+        }
+        updateKeyButtonsUI();
+    }
+
+    window.addEventListener('keydown', (e) => {
+        initAudio();
+
+        if (waitingForKeyAction) {
+            if (e.key === 'Escape') {
+                activeKeyBindButton.classList.remove('waiting');
+                activeKeyBindButton.innerText = formatKeyDisplay(keyBindings[waitingForKeyAction]);
+                waitingForKeyAction = null;
+                activeKeyBindButton = null;
+                return;
+            }
+
+            keyBindings[waitingForKeyAction] = e.key;
+            activeKeyBindButton.classList.remove('waiting');
+            activeKeyBindButton.innerText = formatKeyDisplay(e.key);
+            saveSettings();
+            updateKeyButtonsUI();
+
+            waitingForKeyAction = null;
+            activeKeyBindButton = null;
+            return;
+        }
+
+        if (e.key.toLowerCase() === 'r' || e.key === 'ㄱ') {
+            showStartScreen();
+            return;
+        }
+
+        if (startScreen.style.display === 'flex' && (e.key === ' ' || e.key === 'Enter')) {
+            startGame();
+            return;
+        }
+
+        if (isWaveClearing && e.key === 'Enter') {
+            startNextWave();
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            togglePause();
+            return;
+        }
+
+        if (!isGameStarted || isGameOver || isPaused || isWaveClearing) return;
+
+        const k = e.key;
+        if (k === keyBindings.forward || k.toLowerCase() === keyBindings.forward.toLowerCase()) keys.w = true;
+        if (k === keyBindings.backward || k.toLowerCase() === keyBindings.backward.toLowerCase()) keys.s = true;
+        if (k === keyBindings.left || k.toLowerCase() === keyBindings.left.toLowerCase()) keys.a = true;
+        if (k === keyBindings.right || k.toLowerCase() === keyBindings.right.toLowerCase()) keys.d = true;
+
+        if (k === keyBindings.turnLeft || k.toLowerCase() === keyBindings.turnLeft.toLowerCase()) keys.left = true;
+        if (k === keyBindings.turnRight || k.toLowerCase() === keyBindings.turnRight.toLowerCase()) keys.right = true;
+
+        if (k === keyBindings.dodge || k.toLowerCase() === keyBindings.dodge.toLowerCase()) performDodge();
+        if (k === keyBindings.attack || k.toLowerCase() === keyBindings.attack.toLowerCase()) performAttack();
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (waitingForKeyAction) return;
+
+        const k = e.key;
+        if (k === keyBindings.forward || k.toLowerCase() === keyBindings.forward.toLowerCase()) keys.w = false;
+        if (k === keyBindings.backward || k.toLowerCase() === keyBindings.backward.toLowerCase()) keys.s = false;
+        if (k === keyBindings.left || k.toLowerCase() === keyBindings.left.toLowerCase()) keys.a = false;
+        if (k === keyBindings.right || k.toLowerCase() === keyBindings.right.toLowerCase()) keys.d = false;
+
+        if (k === keyBindings.turnLeft || k.toLowerCase() === keyBindings.turnLeft.toLowerCase()) keys.left = false;
+        if (k === keyBindings.turnRight || k.toLowerCase() === keyBindings.turnRight.toLowerCase()) keys.right = false;
+    });
+
+    function startGame() {
+        initAudio();
+        restartGame();
+    }
+
+    function showStartScreen() {
+        isGameStarted = false;
+        isPaused = false;
+        isGameOver = false;
+        isWaveClearing = false;
+        clearInterval(spawnInterval);
+        clearInterval(heartItemInterval);
+        gameOverScreen.style.display = 'none';
+        victoryScreen.style.display = 'none';
+        pauseScreen.style.display = 'none';
+        waveClearScreen.style.display = 'none';
+        startScreen.style.display = 'flex';
+    }
+
+    function togglePause() {
+        if (!isGameStarted || isGameOver || isWaveClearing) return;
+        isPaused = !isPaused;
+        
+        if (isPaused) {
+            pauseScreen.style.display = 'flex';
+            clearInterval(spawnInterval);
+            clearInterval(heartItemInterval);
+        } else {
+            if (waitingForKeyAction) {
+                activeKeyBindButton.classList.remove('waiting');
+                activeKeyBindButton.innerText = formatKeyDisplay(keyBindings[waitingForKeyAction]);
+                waitingForKeyAction = null;
+                activeKeyBindButton = null;
+            }
+            pauseScreen.style.display = 'none';
+            startSpawningEnemies();
+            startSpawningHeartItems();
+        }
+    }
+
+    function startSpawningEnemies() {
+        if (spawnInterval) clearInterval(spawnInterval);
+        const config = WAVE_CONFIG[currentWaveIndex];
+        spawnInterval = setInterval(spawnEnemy, config.spawnInterval);
+    }
+
+    function startSpawningHeartItems() {
+        if (heartItemInterval) clearInterval(heartItemInterval);
+        heartItemInterval = setInterval(spawnHeartItem, 9000);
+    }
+
+    function spawnHeartItem() {
+        if (!isGameStarted || isGameOver || isPaused || isWaveClearing) return;
+        if (heartItems.length >= 2) return;
+
+        if (Math.random() >= 0.5) return;
+
+        let rx, ry;
+        do {
+            rx = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
+            ry = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
+        } while (map[ry][rx] !== 0);
+
+        heartItems.push({
+            x: (rx + 0.5) * TILE_SIZE,
+            y: (ry + 0.5) * TILE_SIZE
+        });
+    }
+
+    function spawnEnemy() {
+        if (!isGameStarted || isGameOver || isPaused || isWaveClearing) return;
+        const config = WAVE_CONFIG[currentWaveIndex];
+        if (enemies.length >= config.maxEnemies) return;
+
+        let rx, ry, spawnX, spawnY;
+        let validSpawnFound = false;
+        let attempts = 0;
+        const MIN_SPAWN_DIST = 200;
+
+        while (!validSpawnFound && attempts < 150) {
+            attempts++;
+            rx = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
+            ry = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
+
+            if (map[ry][rx] !== 0) continue;
+
+            spawnX = (rx + 0.5) * TILE_SIZE;
+            spawnY = (ry + 0.5) * TILE_SIZE;
+
+            let dx = spawnX - player.x;
+            let dy = spawnY - player.y;
+            let dist = Math.hypot(dx, dy);
+
+            if (dist < MIN_SPAWN_DIST) continue;
+
+            let angleToSpawn = Math.atan2(dy, dx) - player.angle;
+            while (angleToSpawn < -Math.PI) angleToSpawn += Math.PI * 2;
+            while (angleToSpawn > Math.PI) angleToSpawn -= Math.PI * 2;
+
+            const isInFrontFOV = Math.abs(angleToSpawn) <= (player.fov / 2);
+
+            if (isInFrontFOV && hasLineOfSight(player.x, player.y, spawnX, spawnY)) {
+                validSpawnFound = true;
+            }
+        }
+
+        if (validSpawnFound) {
+            enemies.push({
+                x: spawnX,
+                y: spawnY,
+                speed: config.speed,
+                radius: 12,
+                outOfViewTime: 0
+            });
+        }
+    }
+
+    function updateUI() {
+        const config = WAVE_CONFIG[currentWaveIndex];
+        wavePanel.innerText = `WAVE ${config.wave} / 10`;
+        killsPanel.innerText = `PROGRESS: ${waveKills} / ${config.targetKills}`;
+        scorePanel.innerText = `SCORE: ${totalScore}`;
+
+        let heartsStr = '';
+        for (let i = 0; i < currentHp; i++) heartsStr += '♥ ';
+        for (let i = 0; i < maxHp - currentHp; i++) heartsStr += '♡ ';
+        heartsPanel.innerText = heartsStr.trim();
+    }
+
+    function createHitImpact(x, y, count) {
+        for (let i = 0; i < 15 * count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = 2 + Math.random() * 6;
+            particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * spd,
+                vy: Math.sin(angle) * spd,
+                life: 1.0,
+                color: count > 1 ? '#ffcc00' : '#ff1a53',
+                size: 3 + Math.random() * 4
+            });
+        }
+    }
+
+    function addPopupText(text, x, y, color = '#ffcc00') {
+        popups.push({
+            text: text,
+            x: x,
+            y: y,
+            life: 1.0,
+            color: color
+        });
+    }
+
+    function performAttack() {
+        if (!canAttack || !isGameStarted || isGameOver || isPaused || isWaveClearing) return;
+
+        canAttack = false;
+        player.weaponRecoil = 15;
+        playSound('attack');
+
+        const width = canvas.width;
+        const screenCenterX = width / 2;
+        const numRays = Math.floor(width / 3);
+        const rayWidth = width / numRays;
+
+        let piercedTargets = [];
+
+        enemies.forEach((enemy) => {
+            const dx = enemy.x - player.x;
+            const dy = enemy.y - player.y;
+            const rawDist = Math.hypot(dx, dy);
+
+            let spriteAngle = Math.atan2(dy, dx) - player.angle;
+            while (spriteAngle < -Math.PI) spriteAngle += Math.PI * 2;
+            while (spriteAngle > Math.PI) spriteAngle -= Math.PI * 2;
+
+            if (Math.abs(spriteAngle) < player.fov / 2 + 0.1) {
+                const spriteScreenX = (width / 2) + Math.tan(spriteAngle) * (width / 2);
+                const correctedDist = rawDist * Math.cos(spriteAngle);
+                const spriteSize = (TILE_SIZE * canvas.height) / correctedDist;
+                const hitRadius = Math.max(16, spriteSize * 0.35);
+
+                if (Math.abs(screenCenterX - spriteScreenX) <= hitRadius) {
+                    const rayIdx = Math.floor(spriteScreenX / rayWidth);
+
+                    if (rayIdx >= 0 && rayIdx < globalZBuffer.length) {
+                        if (correctedDist <= globalZBuffer[rayIdx] + 20 && hasLineOfSight(player.x, player.y, enemy.x, enemy.y)) {
+                            piercedTargets.push({
+                                enemyRef: enemy,
+                                dist: correctedDist,
+                                screenX: spriteScreenX
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
+        if (piercedTargets.length > 0) {
+            // 거리에 따라 순서 정렬
+            piercedTargets.sort((a, b) => a.dist - b.dist);
+            const hitCount = piercedTargets.length;
+
+            piercedTargets.forEach((target, i) => {
+                const idx = enemies.indexOf(target.enemyRef);
+                if (idx !== -1) {
+                    enemies.splice(idx, 1);
+                }
+            });
+
+            waveKills += hitCount;
+            totalKills += hitCount;
+
+            let earnedScore = 0;
+            for (let i = 0; i < hitCount; i++) {
+                earnedScore += 100 + i * 50; // 관통 시 콤보 가산 점수
+            }
+            totalScore += earnedScore;
+
+            if (hitCount > 1) {
+                playSound('pierce');
+                screenShake = 15;
+                addPopupText(`PIERCE x${hitCount}! +${earnedScore} PTS`, screenCenterX, canvas.height / 2 - 50, '#ffea00');
+            } else {
+                playSound('hit');
+                addPopupText(`+${earnedScore}`, screenCenterX, canvas.height / 2 - 30, '#ffffff');
+            }
+
+            createHitImpact(screenCenterX, canvas.height / 2, hitCount);
+            updateUI();
+            checkWaveProgress();
+        }
+
+        setTimeout(() => { canAttack = true; }, attackCooldown);
+    }
+
+    function hasLineOfSight(x0, y0, x1, y1) {
+        const steps = 30;
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const cx = x0 + (x1 - x0) * t;
+            const cy = y0 + (y1 - y0) * t;
+            const mx = Math.floor(cx / TILE_SIZE);
+            const my = Math.floor(cy / TILE_SIZE);
+            if (map[my] && map[my][mx] === 1) return false;
+        }
+        return true;
+    }
+
+    function checkWaveProgress() {
+        const config = WAVE_CONFIG[currentWaveIndex];
+        if (waveKills >= config.targetKills) {
+            if (currentWaveIndex < WAVE_CONFIG.length - 1) {
+                isWaveClearing = true;
+                clearInterval(spawnInterval);
+                clearInterval(heartItemInterval);
+                playSound('waveClear');
+                enemies = [];
+
+                maxHp++;
+                currentHp++;
+                updateUI();
+
+                waveClearTitle.innerText = `WAVE ${config.wave} CLEARED!`;
+                waveClearDesc.innerText = `새로운 하트 추가! (현재 하트: ${currentHp}/${maxHp}) / 다음 WAVE ${WAVE_CONFIG[currentWaveIndex + 1].wave} (목표: ${WAVE_CONFIG[currentWaveIndex + 1].targetKills} Kills)`;
+                waveClearScreen.style.display = 'flex';
+            } else {
+                triggerVictory();
+            }
+        }
+    }
+
+    function startNextWave() {
+        currentWaveIndex++;
+        waveKills = 0;
+        isWaveClearing = false;
+        waveClearScreen.style.display = 'none';
+        updateUI();
+        startSpawningEnemies();
+        startSpawningHeartItems();
+    }
+
+    function performDodge() {
+        if (!canDodge || !isGameStarted || isGameOver || isPaused || isWaveClearing) return;
+
+        canDodge = false;
+        player.isInvincible = true;
+        playSound('dodge');
+
+        let moveX = Math.cos(player.angle) * 80;
+        let moveY = Math.sin(player.angle) * 80;
+
+        if (!isWall(player.x + moveX, player.y + moveY)) {
+            player.x += moveX;
+            player.y += moveY;
+        }
+
+        setTimeout(() => { player.isInvincible = false; }, 1000);
+        setTimeout(() => { canDodge = true; }, dodgeCooldown);
+    }
+
+    function takeDamage(enemyIndex) {
+        if (player.isInvincible || isGameOver || !isGameStarted) return;
+
+        currentHp--;
+        updateUI();
+        playSound('playerHit');
+
+        if (enemyIndex !== undefined && enemyIndex >= 0 && enemyIndex < enemies.length) {
+            enemies.splice(enemyIndex, 1);
+        }
+
+        screenShake = 25;
+
+        heartsPanel.classList.add('hit');
+        setTimeout(() => heartsPanel.classList.remove('hit'), 200);
+
+        damageFlash.style.opacity = '1';
+        setTimeout(() => damageFlash.style.opacity = '0', 250);
+
+        if (currentHp <= 0) {
+            triggerGameOver();
+        } else {
+            player.isInvincible = true;
+            setTimeout(() => { player.isInvincible = false; }, 1200);
+        }
+    }
+
+    function triggerGameOver() {
+        isGameOver = true;
+        playSound('gameover');
+        clearInterval(spawnInterval);
+        clearInterval(heartItemInterval);
+        finalWave.innerText = `REACHED: WAVE ${WAVE_CONFIG[currentWaveIndex].wave}`;
+        finalKills.innerText = `TOTAL KILLS: ${totalKills}`;
+        finalScore.innerText = `FINAL SCORE: ${totalScore}`;
+        gameOverScreen.style.display = 'flex';
+    }
+
+    function triggerVictory() {
+        isGameOver = true;
+        playSound('waveClear');
+        clearInterval(spawnInterval);
+        clearInterval(heartItemInterval);
+        victoryKills.innerText = `TOTAL KILLS: ${totalKills}`;
+        victoryScore.innerText = `FINAL SCORE: ${totalScore}`;
+        victoryScreen.style.display = 'flex';
+    }
+
+    function restartGame() {
+        isGameStarted = true;
+        isGameOver = false;
+        isPaused = false;
+        isWaveClearing = false;
+        currentWaveIndex = 0;
+        waveKills = 0;
+        totalKills = 0;
+        totalScore = 0;
+
+        maxHp = 1;
+        currentHp = 1;
+        updateUI();
+
+        enemies = [];
+        heartItems = [];
+        particles = [];
+        popups = [];
+        player.x = 8 * TILE_SIZE;
+        player.y = 8 * TILE_SIZE;
+        player.angle = 0;
+        player.isInvincible = false;
+
+        startScreen.style.display = 'none';
+        waveClearScreen.style.display = 'none';
+        gameOverScreen.style.display = 'none';
+        victoryScreen.style.display = 'none';
+        pauseScreen.style.display = 'none';
+
+        startSpawningEnemies();
+        startSpawningHeartItems();
+    }
+
+    function isWall(x, y) {
+        const mx = Math.floor(x / TILE_SIZE);
+        const my = Math.floor(y / TILE_SIZE);
+        if (mx < 0 || mx >= MAP_SIZE || my < 0 || my >= MAP_SIZE) return true;
+        return map[my][mx] === 1;
+    }
+
+    function update() {
+        if (!isGameStarted || isGameOver || isPaused || isWaveClearing) return;
+
+        if (keys.left) player.angle -= player.rotSpeed;
+        if (keys.right) player.angle += player.rotSpeed;
+
+        let moveStep = 0;
+        let strafeStep = 0;
+
+        if (keys.w) moveStep = player.moveSpeed;
+        if (keys.s) moveStep = -player.moveSpeed;
+        if (keys.a) strafeStep = -player.moveSpeed * 0.8;
+        if (keys.d) strafeStep = player.moveSpeed * 0.8;
+
+        const cosA = Math.cos(player.angle);
+        const sinA = Math.sin(player.angle);
+
+        const newX = player.x + (cosA * moveStep - sinA * strafeStep);
+        const newY = player.y + (sinA * moveStep + cosA * strafeStep);
+
+        if (!isWall(newX, player.y)) player.x = newX;
+        if (!isWall(player.x, newY)) player.y = newY;
+
+        if (player.weaponRecoil > 0) player.weaponRecoil -= 2;
+
+        if (screenShake > 0) screenShake *= 0.85;
+        if (screenShake < 0.5) screenShake = 0;
+
+        // 적 업데이트 및 시야 밖 10초 타이머 판정
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            const dx = player.x - enemy.x;
+            const dy = player.y - enemy.y;
+            const dist = Math.hypot(dx, dy);
+
+            // 시야 판단 판정
+            let spriteAngle = Math.atan2(enemy.y - player.y, enemy.x - player.x) - player.angle;
+            while (spriteAngle < -Math.PI) spriteAngle += Math.PI * 2;
+            while (spriteAngle > Math.PI) spriteAngle -= Math.PI * 2;
+
+            const isInSight = Math.abs(spriteAngle) <= (player.fov / 2 + 0.1) && hasLineOfSight(player.x, player.y, enemy.x, enemy.y);
+
+            if (!isInSight) {
+                enemy.outOfViewTime += 1 / 60; // 초 단위 누적 (60FPS 기준)
+                if (enemy.outOfViewTime >= 10) {
+                    // 10초 이상 시야 밖 지속 시 점수 추가/Kill 카운트 없이 소멸
+                    enemies.splice(i, 1);
+                    continue;
+                }
+            } else {
+                enemy.outOfViewTime = 0; // 시야에 포착되면 타이머 리셋
+            }
+
+            if (dist > 18) {
+                const ex = enemy.x + (dx / dist) * enemy.speed;
+                const ey = enemy.y + (dy / dist) * enemy.speed;
+                if (!isWall(ex, enemy.y)) enemy.x = ex;
+                if (!isWall(enemy.x, ey)) enemy.y = ey;
+            }
+
+            if (dist < 18) {
+                takeDamage(i);
+            }
+        }
+
+        // 파티클 업데이트
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.04;
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        // 팝업 텍스트 업데이트
+        for (let i = popups.length - 1; i >= 0; i--) {
+            const pop = popups[i];
+            pop.y -= 0.8;
+            pop.life -= 0.02;
+            if (pop.life <= 0) popups.splice(i, 1);
+        }
+
+        for (let i = heartItems.length - 1; i >= 0; i--) {
+            const item = heartItems[i];
+            const dist = Math.hypot(player.x - item.x, player.y - item.y);
+            if (dist < 30) {
+                if (currentHp >= maxHp) {
+                    maxHp++;
+                    currentHp++;
+                } else {
+                    currentHp++;
+                }
+                updateUI();
+                playSound('heal');
+                heartItems.splice(i, 1);
+            }
+        }
+    }
+
+    function render3D() {
+        const width = canvas.width;
+        const height = canvas.height;
+        const numRays = Math.floor(width / 3);
+        const rayWidth = width / numRays;
+
+        ctx.save();
+
+        if (screenShake > 0) {
+            const shakeX = (Math.random() - 0.5) * screenShake;
+            const shakeY = (Math.random() - 0.5) * screenShake;
+            ctx.translate(shakeX, shakeY);
+        }
+
+        // 하늘
+        ctx.fillStyle = '#cbe3f7';
+        ctx.fillRect(-20, -20, width + 40, height / 2 + 20);
+
+        // 바닥
+        ctx.fillStyle = '#d9e0e8';
+        ctx.fillRect(-20, height / 2, width + 40, height / 2 + 20);
+
+        const zBuffer = [];
+
+        // 벽 레이캐스팅
+        for (let i = 0; i < numRays; i++) {
+            const rayAngle = (player.angle - player.fov / 2) + (i / numRays) * player.fov;
+            let distance = 0;
+            let hitWall = false;
+
+            const cos = Math.cos(rayAngle);
+            const sin = Math.sin(rayAngle);
+
+            while (!hitWall && distance < 800) {
+                distance += 4;
+                const checkX = player.x + cos * distance;
+                const checkY = player.y + sin * distance;
+
+                if (isWall(checkX, checkY)) {
+                    hitWall = true;
+                }
+            }
+
+            const correctedDist = distance * Math.cos(rayAngle - player.angle);
+            zBuffer[i] = correctedDist;
+
+            const wallHeight = (TILE_SIZE * height) / correctedDist;
+            const wallTop = (height / 2) - (wallHeight / 2);
+
+            const shade = Math.max(0.2, 1 - correctedDist / 700);
+            const r = Math.floor(200 * shade);
+            const g = Math.floor(220 * shade);
+            const b = Math.floor(245 * shade);
+
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.fillRect(i * rayWidth, wallTop, rayWidth + 1, wallHeight);
+        }
+
+        globalZBuffer = zBuffer;
+
+        // 적 / 아이템 스프라이트
+        const sprites = [
+            ...enemies.map(e => ({ ...e, type: 'enemy' })),
+            ...heartItems.map(h => ({ ...h, type: 'heart' }))
+        ];
+
+        sprites.forEach(sprite => {
+            sprite.dist = Math.hypot(player.x - sprite.x, player.y - sprite.y);
+        });
+        sprites.sort((a, b) => b.dist - a.dist);
+
+        sprites.forEach(sprite => {
+            let spriteAngle = Math.atan2(sprite.y - player.y, sprite.x - player.x) - player.angle;
+            while (spriteAngle < -Math.PI) spriteAngle += Math.PI * 2;
+            while (spriteAngle > Math.PI) spriteAngle -= Math.PI * 2;
+
+            if (Math.abs(spriteAngle) < player.fov / 2 + 0.2) {
+                const spriteScreenX = (width / 2) + Math.tan(spriteAngle) * (width / 2);
+                const correctedDist = sprite.dist * Math.cos(spriteAngle);
+
+                if (correctedDist > 5) {
+                    const spriteSize = Math.min((TILE_SIZE * height) / correctedDist, height * 1.2);
+                    const rayIdx = Math.floor(spriteScreenX / rayWidth);
+
+                    if (rayIdx < 0 || rayIdx >= numRays || correctedDist <= zBuffer[rayIdx] + 25) {
+                        ctx.save();
+                        ctx.translate(spriteScreenX, height / 2);
+
+                        if (sprite.type === 'enemy') {
+                            const renderRadius = Math.max(10, spriteSize * 0.35);
+
+                            if (customEnemyImage) {
+                                ctx.drawImage(
+                                    customEnemyImage,
+                                    -renderRadius,
+                                    -renderRadius,
+                                    renderRadius * 2,
+                                    renderRadius * 2
+                                );
+                            } else {
+                                ctx.fillStyle = '#ff1a53';
+                                ctx.beginPath();
+                                ctx.arc(0, 0, renderRadius, 0, Math.PI * 2);
+                                ctx.fill();
+
+                                ctx.fillStyle = '#ffffff';
+                                ctx.beginPath();
+                                ctx.arc(-renderRadius * 0.3, -renderRadius * 0.3, renderRadius * 0.3, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        } else {
+                            ctx.font = `${Math.floor(spriteSize * 0.5)}px Arial`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillStyle = '#ff3366';
+                            ctx.fillText('♥', 0, 0);
+                        }
+                        ctx.restore();
+                    }
+                }
+            }
+        });
+
+        // 2D 임팩트 파티클 레이어
+        particles.forEach(p => {
+            ctx.save();
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+
+        // 팝업 텍스트 렌더링
+        popups.forEach(pop => {
+            ctx.save();
+            ctx.globalAlpha = pop.life;
+            ctx.fillStyle = pop.color;
+            ctx.font = 'bold 24px Segoe UI, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 4;
+            ctx.fillText(pop.text, pop.x, pop.y);
+            ctx.restore();
+        });
+
+        drawWeapon(width, height);
+        ctx.restore();
+    }
+
+    function drawWeapon(width, height) {
+        ctx.save();
+        const gunX = width / 2;
+        const gunY = height + player.weaponRecoil;
+
+        ctx.fillStyle = '#2c3e50';
+        ctx.strokeStyle = '#0055ff';
+        ctx.lineWidth = 3;
+
+        ctx.beginPath();
+        ctx.moveTo(gunX - 25, gunY);
+        ctx.lineTo(gunX - 15, gunY - 120);
+        ctx.lineTo(gunX + 15, gunY - 120);
+        ctx.lineTo(gunX + 25, gunY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        if (player.weaponRecoil > 5) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath();
+            ctx.arc(gunX, gunY - 130, 22, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (isGameStarted) {
+            render3D();
+        }
+    }
+
+    function gameLoop() {
+        update();
+        render();
+        requestAnimationFrame(gameLoop);
+    }
+
+    loadSettings();
+    gameLoop();
+</script>
+</body>
+</html>
