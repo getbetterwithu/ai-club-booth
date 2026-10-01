@@ -64,8 +64,6 @@
   .msg.err { color: var(--err); }
   .msg a { color: var(--accent); font-weight: 700; }
   .hint { font-size: .9rem; color: var(--sub); line-height: 1.6; }
-  details summary { cursor: pointer; color: var(--sub); font-size: .9rem; }
-  details[open] summary { margin-bottom: 8px; }
   .hidden { display: none; }
   .two { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; }
   .two label { margin-top: 14px; }
@@ -86,13 +84,8 @@
 
   <!-- 선생님용: 이 기기에서 처음 한 번만 토큰 입력 -->
   <div class="panel hidden" id="tokenPanel">
-    <h2>🔑 업로드 열쇠가 필요해요</h2>
-    <p class="hint">동아리 단톡방에 있는 <b>학생용 업로드 링크</b>로 다시 들어와 주세요.<br>선생님은 아래에 GitHub 토큰을 직접 넣어도 돼요.</p>
-    <div class="row">
-      <input type="password" id="tokenInput" placeholder="github_pat_..." autocomplete="off">
-      <button class="small" id="tokenSave">저장</button>
-    </div>
-    <p class="msg" id="tokenMsg"></p>
+    <h2>🔒 AI 제작반 학생 전용이에요</h2>
+    <p class="hint">작품 올리기는 동아리 학생만 할 수 있어요.<br>동아리 단톡방에 있는 <b>학생용 업로드 링크</b>로 들어와 주세요.</p>
   </div>
 
   <div class="panel" id="formPanel">
@@ -133,22 +126,26 @@
     <p class="msg" id="msg"></p>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="hintPanel">
     <p class="hint">💡 이미지·CSS를 따로 쓰는 작품은 안 돼요. <b>HTML 파일 하나</b>로 돌아가는 작품만 올려주세요.<br>
     💡 올린 뒤 허브에 나타나기까지 <b>1~2분</b> 걸려요.</p>
-    <details style="margin-top:10px">
-      <summary>🔧 선생님 메뉴</summary>
-      <p class="hint" style="margin-top:4px">학생용 링크 만들기: 토큰을 넣고 누르면, 학생이 한 번 열기만 하면 바로 올릴 수 있는 링크가 나와요. 동아리 단톡방에만 공유하세요.</p>
-      <div class="row">
-        <input type="password" id="linkToken" placeholder="github_pat_..." autocomplete="off">
-        <button class="small" id="makeLink">링크 만들기</button>
-      </div>
-      <p class="msg" id="linkMsg" style="word-break:break-all"></p>
-      <p class="hint" style="margin-top:14px">전체 작품 관리: 문제 있는 작품을 허브에서 내릴 수 있어요.</p>
-      <button class="small" id="adminLoad" style="margin-top:6px">📋 전체 작품 목록 불러오기</button>
-      <div id="adminList"></div>
-      <button class="small" id="tokenReset" style="margin-top:14px">이 기기의 업로드 열쇠 지우기</button>
-    </details>
+  </div>
+
+  <!-- 선생님 메뉴: upload/?teacher 로 들어올 때만 보임. 모든 기능은 토큰을 직접 붙여넣어야 작동 -->
+  <div class="panel hidden" id="teacherMenu">
+    <h2>🔧 선생님 메뉴</h2>
+    <label for="teacherToken">GitHub 토큰 <small>(저장되지 않아요. 매번 붙여넣기)</small></label>
+    <input type="password" id="teacherToken" placeholder="github_pat_..." autocomplete="off">
+
+    <p class="hint" style="margin-top:16px">학생용 링크: 학생이 한 번 열기만 하면 바로 올릴 수 있어요. 동아리 단톡방에만 공유하세요.</p>
+    <button class="small" id="makeLink" style="margin-top:6px">🔗 학생용 링크 만들기</button>
+    <p class="msg" id="linkMsg" style="word-break:break-all"></p>
+
+    <p class="hint" style="margin-top:16px">전체 작품 관리: 문제 있는 작품을 허브에서 내릴 수 있어요.</p>
+    <button class="small" id="adminLoad" style="margin-top:6px">📋 전체 작품 목록 불러오기</button>
+    <div id="adminList"></div>
+
+    <button class="small" id="tokenReset" style="margin-top:16px">이 기기의 업로드 열쇠 지우기</button>
   </div>
 </div>
 
@@ -175,16 +172,18 @@ function takeLinkToken() {
   history.replaceState(null, '', location.pathname + location.search);
   refreshTokenUI();
 }
-function refreshTokenUI() { $('tokenPanel').classList.toggle('hidden', !!getToken()); updateSubmit(); scheduleMine(); }
-$('tokenSave').onclick = () => {
-  const t = $('tokenInput').value.trim();
-  if (!t) return showMsg($('tokenMsg'), '토큰을 입력해주세요.', 'err');
-  setToken(t); $('tokenInput').value = ''; refreshTokenUI();
-  showMsg($('msg'), '🔑 열쇠 등록 완료! 이제 작품을 올릴 수 있어요.', 'ok');
-};
+// 열쇠가 없으면 안내만 보이고 업로드 양식은 숨김
+function refreshTokenUI() {
+  const has = !!getToken();
+  $('tokenPanel').classList.toggle('hidden', has);
+  $('formPanel').classList.toggle('hidden', !has);
+  $('hintPanel').classList.toggle('hidden', !has);
+  updateSubmit(); scheduleMine();
+}
+const teacherToken = () => $('teacherToken').value.trim();
 $('makeLink').onclick = async () => {
-  const t = $('linkToken').value.trim() || getToken();
-  if (!t) return showMsg($('linkMsg'), '토큰을 넣어주세요.', 'err');
+  const t = teacherToken();
+  if (!t) return showMsg($('linkMsg'), '위에 토큰을 먼저 붙여넣어 주세요.', 'err');
   const link = location.origin + location.pathname + '#k=' + encodeURIComponent(t);
   let copied = false;
   try { await navigator.clipboard.writeText(link); copied = true; } catch (e) {}
@@ -192,7 +191,7 @@ $('makeLink').onclick = async () => {
 };
 $('tokenReset').onclick = () => {
   if (!confirm('이 기기에 저장된 업로드 열쇠를 지울까요?')) return;
-  setToken(''); refreshTokenUI(); $('tokenPanel').scrollIntoView({ behavior: 'smooth' });
+  setToken(''); refreshTokenUI(); scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 // ---------- 이모지 ----------
@@ -236,10 +235,18 @@ function bytesToB64(bytes) {
 }
 const b64ToText = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), c => c.charCodeAt(0)));
 
+let tokenOverride = null;  // 선생님 작업 중에만 설정
+async function asTeacher(fn) {
+  const t = teacherToken();
+  if (!t) throw Object.assign(new Error('no token'), { noToken: true });
+  tokenOverride = t;
+  try { return await fn(); } finally { tokenOverride = null; }
+}
+
 async function gh(path, opts = {}) {
   const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`, {
     ...opts,
-    headers: { Authorization: 'Bearer ' + getToken(), Accept: 'application/vnd.github+json', ...(opts.headers || {}) },
+    headers: { Authorization: 'Bearer ' + (tokenOverride || getToken()), Accept: 'application/vnd.github+json', ...(opts.headers || {}) },
   });
   if (!res.ok) { const err = new Error('GitHub ' + res.status); err.status = res.status; throw err; }
   return res.json();
@@ -313,10 +320,10 @@ async function renderAdmin() {
   const box = $('adminList');
   box.innerHTML = '<p class="hint">불러오는 중…</p>';
   try {
-    const { list } = await loadWorks();
+    const { list } = await asTeacher(loadWorks);
     box.innerHTML = list.length ? list.map(w => `<div class="item"><span>${escapeHtml(w.emoji || '🎨')} ${escapeHtml(w.title || '')} — ${escapeHtml(w.sid || '')} ${escapeHtml(w.author || '')}</span>
       <button class="small" data-del="${escapeHtml(w.slug)}">삭제</button></div>`).join('') : '<p class="hint">올라온 작품이 없어요.</p>';
-  } catch (e) { box.innerHTML = `<p class="msg err">${errorText(e)}</p>`; }
+  } catch (e) { box.innerHTML = `<p class="msg err">${e.noToken ? '위에 토큰을 먼저 붙여넣어 주세요.' : errorText(e)}</p>`; }
 }
 $('adminLoad').onclick = renderAdmin;
 $('adminList').onclick = async ev => {
@@ -325,11 +332,13 @@ $('adminList').onclick = async ev => {
   if (!confirm('이 작품을 허브에서 내리고 파일도 지울까요?\n\n' + label)) return;
   ev.target.disabled = true; ev.target.textContent = '지우는 중…';
   try {
-    await updateWorks(list => list.filter(w => w.slug !== slug), `remove work: ${slug}`);
-    const path = `student-works/${slug}/index.html`, sha = await fileSha(path);
-    if (sha) await gh(path, { method: 'DELETE', body: JSON.stringify({ message: `remove work: ${slug}`, sha, branch: BRANCH }) });
+    await asTeacher(async () => {
+      await updateWorks(list => list.filter(w => w.slug !== slug), `remove work: ${slug}`);
+      const path = `student-works/${slug}/index.html`, sha = await fileSha(path);
+      if (sha) await gh(path, { method: 'DELETE', body: JSON.stringify({ message: `remove work: ${slug}`, sha, branch: BRANCH }) });
+    });
     renderAdmin(); loadMine();
-  } catch (e) { alert(errorText(e)); ev.target.disabled = false; ev.target.textContent = '삭제'; }
+  } catch (e) { alert(e.noToken ? '위에 토큰을 먼저 붙여넣어 주세요.' : errorText(e)); ev.target.disabled = false; ev.target.textContent = '삭제'; }
 };
 
 function errorText(e) {
@@ -396,6 +405,7 @@ function resetForm() {
 
 function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
+$('teacherMenu').classList.toggle('hidden', !new URLSearchParams(location.search).has('teacher'));
 refreshTokenUI();
 takeLinkToken();
 addEventListener('hashchange', takeLinkToken);
