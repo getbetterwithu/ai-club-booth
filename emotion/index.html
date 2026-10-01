@@ -255,7 +255,10 @@
       var video = document.getElementById('video');
       var overlay = document.getElementById('overlay');
       var ctx = overlay.getContext('2d');
-      var stream = null, modelsReady = false, scriptPromise = null, detecting = false, loopTimer = null;
+      var stream = null, modelsReady = false, detecting = false, loopTimer = null;
+      var landmarker = null, TESS = null, baseline = null, smoothed = null;
+      var TASKS = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
+      var FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
       var currentExpressions = {}, faceVisible = false, activeMode = 'analysis';
       var holdStarted = 0, currentMission = 0, transitionLocked = false;
 
@@ -294,39 +297,64 @@
         showScreen('error');
       }
 
-      function loadScript(src){
-        return new Promise(function(resolve,reject){
-          var s=document.createElement('script'); s.src=src; s.async=true;
-          s.onload=resolve; s.onerror=function(){s.remove();reject(new Error('script'));};
-          document.head.appendChild(s);
-        });
-      }
-      function ensureFaceApi(){
-        if(window.faceapi) return Promise.resolve();
-        if(scriptPromise) return scriptPromise;
-        scriptPromise=loadScript('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js')
-          .catch(function(){return loadScript('https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js');})
-          .catch(function(err){scriptPromise=null;throw err;});
-        return scriptPromise;
-      }
+      // Google MediaPipe 얼굴 그물망(478개 점) + 얼굴 근육 52개 움직임
       async function loadModels(){
         if(modelsReady) return;
         setLoading('표정을 알아보는 도구를 불러오는 중이야…',18);
-        await ensureFaceApi();
-        var primary='https://justadudewhohacks.github.io/face-api.js/models';
-        var fallback='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
-        async function from(uri){
-          setLoading('얼굴을 찾는 AI를 준비하는 중이야…',42);
-          await window.faceapi.nets.tinyFaceDetector.loadFromUri(uri);
-          setLoading('감정을 읽는 AI를 준비하는 중이야…',70);
-          await window.faceapi.nets.faceExpressionNet.loadFromUri(uri);
-        }
-        try{await from(primary);}catch(e){
-          setLoading('다른 연결로 AI를 다시 불러오는 중이야…',30);
-          await from(fallback);
-        }
+        var lib=await import(TASKS+'/vision_bundle.mjs');
+        setLoading('얼굴 근육 52개를 읽는 AI를 준비하는 중이야…',45);
+        var fileset=await lib.FilesetResolver.forVisionTasks(TASKS+'/wasm');
+        setLoading('얼굴 그물망 AI를 준비하는 중이야…',70);
+        landmarker=await lib.FaceLandmarker.createFromOptions(fileset,{
+          baseOptions:{modelAssetPath:FACE_MODEL,delegate:'CPU'},
+          runningMode:'VIDEO',numFaces:1,outputFaceBlendshapes:true
+        });
+        TESS=lib.FaceLandmarker.FACE_LANDMARKS_TESSELATION;
         modelsReady=true;
       }
+
+      // 얼굴 근육 움직임 → 감정 점수
+      // 사람마다 평소 얼굴(눈썹, 입꼬리)이 달라서, 그 사람의 '가장 차분했던 값'을 기준으로 빼서 계산
+      function toEmotions(categories){
+        var b={};categories.forEach(function(c){b[c.categoryName]=c.score;});
+        function avg(l,r){return ((b[l]||0)+(b[r]||0))/2;}
+        var f={
+          smile:avg('mouthSmileLeft','mouthSmileRight'),frown:avg('mouthFrownLeft','mouthFrownRight'),
+          browDown:avg('browDownLeft','browDownRight'),browInnerUp:b.browInnerUp||0,browOuterUp:avg('browOuterUpLeft','browOuterUpRight'),
+          eyeWide:avg('eyeWideLeft','eyeWideRight'),eyeSquint:avg('eyeSquintLeft','eyeSquintRight'),jawOpen:b.jawOpen||0,
+          sneer:avg('noseSneerLeft','noseSneerRight'),upperUp:avg('mouthUpperUpLeft','mouthUpperUpRight'),
+          press:avg('mouthPressLeft','mouthPressRight'),stretch:avg('mouthStretchLeft','mouthStretchRight'),
+          lowerDown:avg('mouthLowerDownLeft','mouthLowerDownRight'),shrugLower:b.mouthShrugLower||0
+        };
+        if(!baseline){baseline={};Object.keys(f).forEach(function(k){baseline[k]=f[k];});}
+        var g={};
+        Object.keys(f).forEach(function(k){
+          baseline[k]=Math.min(baseline[k]+0.002,f[k]);
+          g[k]=(k==='smile'||k==='jawOpen')?f[k]:Math.max(0,f[k]-baseline[k]*0.8);
+        });
+        // 활짝 웃으면 눈썹·코 근육도 같이 움직여서, 웃을 때는 다른 감정을 눌러줌
+        var notSmile=1-Math.min(1,g.smile*1.3);
+        var raw={
+          happy:g.smile*1.15,
+          surprised:(g.jawOpen*0.55+g.eyeWide*0.7+g.browInnerUp*0.35+g.browOuterUp*0.6)*notSmile,
+          angry:(g.browDown*1.1+g.sneer*0.3+g.press*0.3+g.eyeSquint*0.2)*notSmile,
+          sad:(g.frown*1.4+g.browInnerUp*0.6+g.shrugLower*0.4+g.press*0.2)*notSmile*(1-g.jawOpen*0.5),
+          fearful:(g.eyeWide*0.6+g.stretch*0.9+g.browInnerUp*0.35+g.lowerDown*0.3)*notSmile*(1-g.jawOpen*0.4),
+          disgusted:(g.sneer*1.2+g.upperUp*0.7)*notSmile
+        };
+        var max=0;
+        Object.keys(raw).forEach(function(k){raw[k]=Math.max(0,Math.min(1,raw[k]));max=Math.max(max,raw[k]);});
+        raw.neutral=Math.max(0.04,0.55-max);
+        var sum=0,out={};
+        emotionKeys.forEach(function(k){out[k]=raw[k]*raw[k];sum+=out[k];});
+        emotionKeys.forEach(function(k){out[k]=sum?out[k]/sum:0;});
+        // 프레임마다 튀지 않게 부드럽게
+        if(!smoothed) smoothed=out;
+        else emotionKeys.forEach(function(k){smoothed[k]=smoothed[k]*0.55+out[k]*0.45;});
+        var copy={};emotionKeys.forEach(function(k){copy[k]=smoothed[k];});
+        return copy;
+      }
+
       async function startCamera(){
         if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('unsupported');
         if(stream) stream.getTracks().forEach(function(t){t.stop();});
@@ -375,44 +403,53 @@
         });
       }
       function resizeCanvas(){
-        if(video.videoWidth){overlay.width=video.videoWidth;overlay.height=video.videoHeight;}
+        var dpr=Math.min(2,window.devicePixelRatio||1),w=Math.round(overlay.clientWidth*dpr),h=Math.round(overlay.clientHeight*dpr);
+        if(w&&h&&(overlay.width!==w||overlay.height!==h)){overlay.width=w;overlay.height=h;}
       }
-      function drawOverlay(det){
-        if(overlay.width!==video.videoWidth||overlay.height!==video.videoHeight) resizeCanvas();
-        ctx.clearRect(0,0,overlay.width,overlay.height);
-        if(!det) return;
-        var b=det.detection.box,x=overlay.width-b.x-b.width;
-        var top=emotionKeys.slice().sort(function(a,c){return (det.expressions[c]||0)-(det.expressions[a]||0);})[0];
-        var label=emotions[top].emoji+' '+emotions[top].name+' '+Math.round((det.expressions[top]||0)*100)+'%';
-        ctx.lineWidth=Math.max(4,overlay.width/260);ctx.strokeStyle='#54efca';
-        ctx.strokeRect(x,b.y,b.width,b.height);
-        ctx.font='700 '+Math.max(22,overlay.width/34)+'px "Noto Sans KR", sans-serif';
-        var pad=12,textW=ctx.measureText(label).width,boxH=Math.max(42,overlay.height/12);
-        var labelY=Math.max(0,b.y-boxH);
-        ctx.fillStyle='rgba(17,28,41,.88)';ctx.fillRect(x,labelY,Math.min(textW+pad*2,overlay.width-x),boxH);
-        ctx.fillStyle='#fff';ctx.textBaseline='middle';ctx.fillText(label,x+pad,labelY+boxH/2);
+      // 화면의 영상은 좌우 반전 + 꽉 채우기(cover)라서 같은 방식으로 좌표를 맞춤
+      function drawOverlay(points,expressions){
+        resizeCanvas();
+        var W=overlay.width,H=overlay.height;
+        ctx.clearRect(0,0,W,H);
+        if(!points||!video.videoWidth) return;
+        var vw=video.videoWidth,vh=video.videoHeight,scale=Math.max(W/vw,H/vh),ox=(W-vw*scale)/2,oy=(H-vh*scale)/2;
+        function X(p){return W-(ox+p.x*vw*scale);}
+        function Y(p){return oy+p.y*vh*scale;}
+        // 얼굴 그물망
+        ctx.lineWidth=Math.max(1,W/900);ctx.strokeStyle='rgba(84,239,202,.45)';
+        ctx.beginPath();
+        TESS.forEach(function(c){var a=points[c.start],z=points[c.end];if(!a||!z)return;ctx.moveTo(X(a),Y(a));ctx.lineTo(X(z),Y(z));});
+        ctx.stroke();
+        var minX=W,maxX=0,minY=H,maxY=0;
+        points.forEach(function(p){var x=X(p),y=Y(p);if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;});
+        var top=emotionKeys.slice().sort(function(a,c){return (expressions[c]||0)-(expressions[a]||0);})[0];
+        var label=emotions[top].emoji+' '+emotions[top].name+' '+Math.round((expressions[top]||0)*100)+'%';
+        ctx.lineWidth=Math.max(3,W/320);ctx.strokeStyle='#54efca';
+        ctx.strokeRect(minX,minY,maxX-minX,maxY-minY);
+        ctx.font='700 '+Math.max(18,W/34)+'px "Noto Sans KR", sans-serif';
+        var pad=12,textW=ctx.measureText(label).width,boxH=Math.max(36,H/13);
+        var labelY=Math.max(0,minY-boxH);
+        ctx.fillStyle='rgba(17,28,41,.88)';ctx.fillRect(minX,labelY,Math.min(textW+pad*2,W-minX),boxH);
+        ctx.fillStyle='#fff';ctx.textBaseline='middle';ctx.fillText(label,minX+pad,labelY+boxH/2);
       }
-      async function detectOnce(){
-        if(detecting||!stream||video.readyState<2) return;
+      function detectOnce(){
+        if(detecting||!stream||!landmarker||video.readyState<2) return;
         detecting=true;
         try{
-          var options=new window.faceapi.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:.45});
-          var results=await window.faceapi.detectAllFaces(video,options).withFaceExpressions();
-          var largest=null;
-          results.forEach(function(r){
-            var area=r.detection.box.width*r.detection.box.height;
-            if(!largest||area>largest.area) largest={area:area,result:r};
-          });
-          faceVisible=!!largest;
+          var res=landmarker.detectForVideo(video,performance.now());
+          var points=res.faceLandmarks&&res.faceLandmarks[0];
+          faceVisible=!!points;
           document.getElementById('faceAlert').classList.toggle('hidden',faceVisible);
-          if(largest){currentExpressions=largest.result.expressions;updateEmotions(currentExpressions);drawOverlay(largest.result);updateMission();}
-          else{currentExpressions={};drawOverlay(null);resetHold();}
+          if(points&&res.faceBlendshapes&&res.faceBlendshapes[0]){
+            currentExpressions=toEmotions(res.faceBlendshapes[0].categories);
+            updateEmotions(currentExpressions);drawOverlay(points,currentExpressions);updateMission();
+          }else{currentExpressions={};drawOverlay(null);resetHold();}
         }catch(e){console.warn('표정 분석을 잠시 쉬고 다시 시도해.',e);}
         finally{detecting=false;}
       }
       function startLoop(){
-        stopLoop();
-        function tick(){detectOnce().finally(function(){loopTimer=setTimeout(tick,300);});}
+        stopLoop();baseline=null;smoothed=null;
+        function tick(){detectOnce();loopTimer=setTimeout(tick,80);}
         tick();
       }
       function stopLoop(){if(loopTimer){clearTimeout(loopTimer);loopTimer=null;}}
@@ -504,5 +541,5 @@
       initEmotionRows();renderMission();
     })();
   </script>
-<a href="../" id="hub-back" style="position:fixed;top:12px;left:12px;z-index:9999;background:#16213e;color:#fff;font-weight:800;font-size:15px;padding:10px 16px;border-radius:30px;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)">🏠 허브로</a></body>
+<a href="../" id="hub-back" style="position:fixed;bottom:12px;left:12px;z-index:9999;background:#16213e;color:#fff;font-weight:800;font-size:15px;padding:10px 16px;border-radius:30px;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)">🏠 허브로</a></body>
 </html>
