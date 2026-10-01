@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스틱맨 바디 스왓칭 슈터 - Crouch Dodge Fixed</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top,#252b38,#101218 70%);color:#fff;font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;padding:18px;overflow:hidden}.wrap{width:min(960px,96vw)}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.title{font-size:22px;font-weight:800}.hint{font-size:12px;color:#aeb7c8}.game{position:relative}.game canvas{display:block;width:100%;height:auto;background:#171a20;border:2px solid #414959;border-radius:12px;box-shadow:0 15px 50px #0008}.overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#0008;border-radius:12px}.panel{min-width:300px;text-align:center;background:#171b24eF;border:1px solid #596274;border-radius:16px;padding:24px;box-shadow:0 15px 45px #0009}.panel h1{margin:0 0 10px;font-size:32px}.panel p{margin:7px;color:#c8cfdb}.btn{margin-top:14px;padding:11px 24px;border:0;border-radius:9px;background:#1abc9c;color:#fff;font-weight:800;font-size:16px;cursor:pointer}.btn:hover{filter:brightness(1.12)}.controls{margin-top:9px;text-align:center;color:#9da7b8;font-size:12px}.badge{padding:5px 9px;border-radius:999px;background:#252b36;border:1px solid #414959;color:#dbe2ee}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="title">⚡ 스틱맨 바디 스왓칭 슈터</div><div class="hint"><span class="badge">몸을 빼앗고 오래 살아남으세요</span></div></div>
+  <div class="game">
+    <canvas id="gameCanvas" width="900" height="540"></canvas>
+    <div id="overlay" class="overlay"><div class="panel"><h1>GAME OVER</h1><p id="resultText"></p><p id="bestText"></p><button class="btn" id="restartBtn">다시 시작</button></div></div>
+  </div>
+  <div class="controls">← → 이동 · ↑ 점프 · ↓ 웅크리기 · Space 사격 · E 영혼/몸 변경 · Shift 특수 능력</div>
+</div>
+<script>
+'use strict';
+const canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height,groundY=460;
+const overlay=document.getElementById('overlay'),resultText=document.getElementById('resultText'),bestText=document.getElementById('bestText'),restartBtn=document.getElementById('restartBtn');
+const keys={left:false,right:false,up:false,down:false,space:false,e:false,shift:false};
+// 전체 이동/탄환 속도를 기존의 약 1/3로 낮춘 설정
+const SPEED_SCALE=1/3;
+// 화면에 동시에 존재할 수 있는 적 탄환의 최대 개수
+const MAX_ENEMY_BULLETS=5;
+// 적 탄환 사이 간격을 약간 넓혀 공격이 너무 촘촘하지 않도록 조정
+const ENEMY_FIRE_GAP_SCALE=1.28;
+const TYPES={
+ BASIC:{name:'기본형',color:'#e74c3c',maxHp:6,hitSize:18,speed:3.6*SPEED_SCALE,shootCd:22,bulletSpeed:8*SPEED_SCALE,damage:1,ability:'근거리 탄환'},
+ TANK:{name:'탱크',color:'#e67e22',maxHp:14,hitSize:20,speed:2.0*SPEED_SCALE,shootCd:34,bulletSpeed:7*SPEED_SCALE,damage:2,ability:'강한 탄환'},
+ SPEED:{name:'스피드',color:'#3498db',maxHp:4,hitSize:17,speed:5.5*SPEED_SCALE,shootCd:13,bulletSpeed:10*SPEED_SCALE,damage:1,ability:'고속 이동'},
+ BOMBER:{name:'봄버',color:'#9b59b6',maxHp:8,hitSize:19,speed:3.0*SPEED_SCALE,shootCd:999,bulletSpeed:0,damage:1,ability:'대폭발'},
+ SNIPER:{name:'스나이퍼',color:'#2ecc71',maxHp:5,hitSize:18,speed:2.5*SPEED_SCALE,shootCd:55,bulletSpeed:13*SPEED_SCALE,damage:3,ability:'관통탄'},
+ BOSS:{name:'보스',color:'#ff1764',maxHp:80,hitSize:30,speed:2.5*SPEED_SCALE,shootCd:48,bulletSpeed:8*SPEED_SCALE,damage:2,ability:'2페이즈'}
+};
+let player,enemies,bullets,souls,particles,shockwaves,score,frame,startTime,gameOver,bossSpawned,bossPhase,lastEnemySpawn,shake,bestScore,bestTime;
+const getBest=()=>{try{return JSON.parse(localStorage.getItem('stickBest')||'{}')}catch{return {}}};
+function reset(){
+ player={x:150,y:groundY,vy:0,isGrounded:true,facing:1,type:TYPES.BASIC,hp:TYPES.BASIC.maxHp,lastShot:-999,abilityCd:0,inv:0,hitFlash:0};
+ enemies=[];bullets=[];souls=[];particles=[];shockwaves=[];score=0;frame=0;startTime=performance.now();gameOver=false;bossSpawned=false;bossPhase=1;lastEnemySpawn=0;shake=0;bestScore=getBest().score||0;bestTime=getBest().time||0;overlay.style.display='none';
+}
+function time(){return (performance.now()-startTime)/1000}
+function fmt(s){s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function difficulty(){return Math.min(5,1+Math.floor(time()/30))}
+function rand(a,b){return a+Math.random()*(b-a)}
+function particle(x,y,vx,vy,life,color,size=3){particles.push({x,y,vx,vy,life,max:life,color,size})}
+function burst(x,y,color,n=14,power=5){for(let i=0;i<n;i++){let a=Math.random()*Math.PI*2,s=Math.random()*power;particle(x,y,Math.cos(a)*s,Math.sin(a)*s,20+Math.random()*25,color,rand(2,5))}}
+function spawnEnemy(){
+ if(bossSpawned||enemies.filter(e=>!e.dead).length>=2)return;
+ const d=difficulty(), pool=d<2?[TYPES.BASIC,TYPES.BASIC,TYPES.SPEED]:d<3?[TYPES.BASIC,TYPES.TANK,TYPES.SPEED,TYPES.BOMBER]:d<4?[TYPES.TANK,TYPES.SPEED,TYPES.BOMBER,TYPES.SNIPER]:[TYPES.TANK,TYPES.SPEED,TYPES.BOMBER,TYPES.SNIPER];
+ const t=pool[Math.floor(Math.random()*pool.length)]; enemies.push({x:W+35,y:groundY,vy:0,type:t,hp:t.maxHp,lastShot:frame+Math.random()*30,attackCd:0,dead:false});
+}
+function spawnBoss(){bossSpawned=true;enemies=[];const t=TYPES.BOSS;enemies.push({x:W-110,y:groundY,vy:0,type:t,hp:t.maxHp,lastShot:frame,attackCd:0,dead:false});burst(W-110,groundY-50,t.color,35,8);shake=10}
+function enemyBulletCount(){return bullets.reduce((n,b)=>n+(b.from==='enemy'?1:0),0)}
+function addEnemyBullet(b){if(enemyBulletCount()>=MAX_ENEMY_BULLETS)return false;bullets.push(b);return true}
+function aimVector(fromX,fromY,targetX,targetY){
+ const dx=targetX-fromX,dy=targetY-fromY,len=Math.hypot(dx,dy)||1;
+ return {x:dx/len,y:dy/len};
+}
+function shoot(from,playerShot=true){
+ const t=from.type;
+ if(playerShot){
+  if(frame-from.lastShot<t.shootCd)return;
+  from.lastShot=frame;
+  if(t===TYPES.BOMBER)return;
+ }
+ const y=from.y-28;
+ if(playerShot){
+  const dir=player.facing;
+  const shot={x:from.x+dir*20,y,vx:dir*(t.bulletSpeed||7),vy:0,from:'player',damage:t.damage||1,life:Infinity,penetrate:t===TYPES.SNIPER};
+  bullets.push(shot);
+  particle(from.x+dir*18,y,dir*2*SPEED_SCALE,0,12,t.color,3);
+  return;
+ }
+ const speed=t.bulletSpeed||7;
+
+ // 일반 적은 일정 확률로 '일직선 공격'을 사용합니다.
+ // 이 탄환은 서 있는 플레이어의 머리 높이를 지나가므로 웅크리기로 회피할 수 있습니다.
+ const straight = t !== TYPES.SNIPER && Math.random() < 0.60;
+ if(straight){
+  const lineY=from.y-48;
+  const dir=player.x<from.x?-1:1;
+  const shot={x:from.x+dir*20,y:lineY,vx:dir*speed,vy:0,from:'enemy',damage:t.damage||1,life:Infinity,penetrate:false,kind:'straight'};
+  addEnemyBullet(shot);
+  particle(from.x+dir*18,lineY,dir*2*SPEED_SCALE,0,12,t.color,3);
+  return;
+ }
+
+ // 일부 적과 스나이퍼는 플레이어 위치를 직접 조준합니다.
+ const targetY=player.y-(player.isCrouching?15:25);
+ const v=aimVector(from.x,y,player.x,targetY);
+ const shot={x:from.x+v.x*20,y:y+v.y*20,vx:v.x*speed,vy:v.y*speed,from:'enemy',damage:t.damage||1,life:Infinity,penetrate:false,kind:'aimed'};
+ addEnemyBullet(shot);
+ particle(from.x+v.x*18,y+v.y*18,v.x*2*SPEED_SCALE,v.y*2*SPEED_SCALE,12,t.color,3);
+}
+function shootBossAimed(e){
+ const t=e.type,speed=t.bulletSpeed||7,y=e.y-30;
+ const targetY=player.y-(player.isCrouching?15:25);
+ const base=aimVector(e.x,y,player.x,targetY);
+ const baseAngle=Math.atan2(base.y,base.x);
+ const spread=bossPhase===2?0.22:0.15;
+ for(let i=-2;i<=2;i++){
+  const a=baseAngle+i*spread;
+  addEnemyBullet({x:e.x+Math.cos(a)*18,y:y+Math.sin(a)*18,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,from:'enemy',damage:2,life:Infinity,penetrate:false});
+ }
+ particle(e.x+base.x*18,y+base.y*18,base.x*2*SPEED_SCALE,base.y*2*SPEED_SCALE,12,t.color,3);
+}
+function special(){
+ if(gameOver||player.abilityCd>0)return;
+ const t=player.type;
+ if(t===TYPES.BOMBER){player.abilityCd=240;burst(player.x,player.y-25,'#ff9f43',55,11);shake=14;enemies.forEach(e=>{if(Math.hypot(e.x-player.x,e.y-player.y)<180)e.hp-=12});}
+ else if(t===TYPES.SPEED){player.abilityCd=180;player.x=Math.min(W-60,player.x+130*SPEED_SCALE);burst(player.x-50,player.y-25,t.color,25,7)}
+ else if(t===TYPES.TANK){player.abilityCd=210;player.inv=100;player.hp=Math.min(t.maxHp,player.hp+4);burst(player.x,player.y-30,t.color,25,6)}
+ else if(t===TYPES.SNIPER){player.abilityCd=200;for(let i=0;i<3;i++)bullets.push({x:player.x+player.facing*18,y:player.y-25,vx:player.facing*15*SPEED_SCALE,vy:0,from:'player',damage:5,life:Infinity,penetrate:true});burst(player.x,player.y-25,t.color,20,5)}
+ else {player.abilityCd=150;for(let i=0;i<5;i++)bullets.push({x:player.x+player.facing*15,y:player.y-25+i*3,vx:player.facing*10*SPEED_SCALE,vy:(i-2)*.7,from:'player',damage:2,life:Infinity,penetrate:false})}
+}
+function possess(){
+ if(!souls.length)return;
+ let s=souls.shift(),t=s.type;player.type=t;player.hp=t.maxHp;player.abilityCd=0;player.inv=45;burst(player.x,player.y-25,t.color,30,7);shake=5;
+}
+function damagePlayer(n){if(player.inv>0||gameOver)return;player.hp-=n;player.inv=45;player.hitFlash=8;shake=7;burst(player.x,player.y-25,'#fff',10,4);if(player.hp<=0)endGame()}
+function playerHitbox(){
+ // 웅크리면 상체가 확실히 낮아집니다.
+ return player.isCrouching
+  ? {left:player.x-20,right:player.x+20,top:player.y-36,bottom:player.y+10}
+  : {left:player.x-20,right:player.x+20,top:player.y-59,bottom:player.y+10};
+}
+function bulletHitsPlayer(b){
+ // 일직선 공격은 웅크리는 순간 확실히 머리 위로 지나가도록 예외 처리합니다.
+ // 조준형 공격은 기존 피격 판정을 그대로 사용합니다.
+ if(b.kind==='straight' && player.isCrouching) return false;
+ const h=playerHitbox();
+ return b.x>=h.left-4 && b.x<=h.right+4 && b.y>=h.top-4 && b.y<=h.bottom+4;
+}
+function killEnemy(e){if(e.dead)return;e.dead=true;score+=e.type===TYPES.BOSS?1000:100* difficulty();burst(e.x,e.y-25,e.type.color,e.type===TYPES.BOSS?60:20,e.type===TYPES.BOSS?10:6);souls.push({x:e.x,y:e.y-25,type:e.type===TYPES.BOSS?TYPES.TANK:e.type});if(souls.length>4)souls.shift();shake=e.type===TYPES.BOSS?15:3}
+function update(){
+ if(gameOver)return;frame++;if(shake>0)shake*=.88;if(player.inv>0)player.inv--;if(player.abilityCd>0)player.abilityCd--;if(player.hitFlash>0)player.hitFlash--;
+ const d=difficulty();
+ if(!bossSpawned&&time()>=120)spawnBoss();
+ if(!bossSpawned&&frame-lastEnemySpawn>Math.max(45,115-d*15)){lastEnemySpawn=frame;spawnEnemy()}
+ let move=(keys.right?1:0)-(keys.left?1:0);const moveSpeed=player.type.speed*(player.isCrouching?0.72:1);player.x+=move*moveSpeed;player.x=Math.max(35,Math.min(W-35,player.x));
+ if(keys.up&&player.isGrounded&&!player.isCrouching){player.vy=-6;player.isGrounded=false} player.vy+=.20;player.y+=player.vy;if(player.y>=groundY){player.y=groundY;player.vy=0;player.isGrounded=true}
+ player.isCrouching=!!keys.down && player.isGrounded; if(keys.space)shoot(player,true);
+ enemies.forEach(e=>{
+  if(e.dead)return;const t=e.type,dir=player.x<e.x?-1:1;
+  if(t===TYPES.BOSS){if(e.hp<=t.maxHp/2&&bossPhase===1){bossPhase=2;burst(e.x,e.y-40,'#ff4d88',50,9);shake=12}const dist=Math.abs(player.x-e.x);e.x+=dir*t.speed*(bossPhase===2?1.35:1);if(e.attackCd<=0){if(Math.random()<.45){shootBossAimed(e)}else{shockwaves.push({x:e.x,r:10,vx:dir*5*SPEED_SCALE,life:80,damage:2})}e.attackCd=bossPhase===2?45:70}else e.attackCd--;if(dist<70&&Math.random()<.025)damagePlayer(3)}
+  else {const dist=Math.abs(player.x-e.x);if(t===TYPES.SNIPER){if(dist<250)e.x-=dir*t.speed;else if(dist>380)e.x+=dir*t.speed;if(e.lastShot<=frame){shoot(e,false);e.lastShot=frame+Math.round(t.shootCd*ENEMY_FIRE_GAP_SCALE)+Math.random()*24}}else if(t===TYPES.BOMBER){e.x+=dir*t.speed;if(dist<110){burst(e.x,e.y-25,t.color,30,8);damagePlayer(3);e.hp=0;killEnemy(e)}}else{e.x+=dir*t.speed;if(e.lastShot<=frame){shoot(e,false);e.lastShot=frame+Math.round(t.shootCd*ENEMY_FIRE_GAP_SCALE)+Math.random()*24}if(dist<(player.isCrouching?36:50)&&Math.random()<.035)damagePlayer(t===TYPES.TANK?2:1)}}
+  if(e.x<-60)e.dead=true;
+ });
+ // 탄환-적/플레이어 충돌
+ bullets.forEach(b=>{
+  b.x+=b.vx;b.y+=b.vy;b.life--;
+  if(b.from==='player'){
+   for(const e of enemies){
+    if(e.dead)continue;
+    if(Math.hypot(b.x-e.x,b.y-(e.y-25))<e.type.hitSize+7){
+     e.hp-=b.damage;
+     burst(b.x,b.y,e.type.color,5,2);
+     b.life=0;
+     if(e.hp<=0)killEnemy(e);
+     if(!b.penetrate)break;
+    }
+   }
+  }else if(bulletHitsPlayer(b)){
+   damagePlayer(b.damage);
+   b.life=0;
+  }
+ });
+ bullets=bullets.filter(b=>b.life>0&&b.x>-40&&b.x<W+40);
+ shockwaves.forEach(s=>{s.x+=s.vx;s.r+=5;s.life--;if(Math.abs(s.x-player.x)<s.r+18&&s.life%12===0)damagePlayer(s.damage)});shockwaves=shockwaves.filter(s=>s.life>0);
+ souls.forEach(s=>{s.y=player.y-25+Math.sin((frame+s.x)*.08)*12});
+ particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.18;p.life--});particles=particles.filter(p=>p.life>0);
+ enemies=enemies.filter(e=>!e.dead);
+ if(bossSpawned&&enemies.length===0)endGame(true);
+}
+function drawStick(x,y,t,flip=1,alpha=1,enemy=false,crouching=false){ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.scale(flip,1);ctx.strokeStyle=t.color;ctx.fillStyle=t.color;ctx.lineWidth=t===TYPES.BOSS?7:5;ctx.lineCap='round';const isBoss=t===TYPES.BOSS;const crouch=crouching&&!isBoss;const headY=crouch?-34:(isBoss?-48:-48);const bodyTop=crouch?-23:(isBoss?-35:-35);const bodyBottom=crouch?-3:(isBoss?-5:-5);const shoulderY=crouch?-18:(isBoss?-28:-28);const armY=crouch?-5:(isBoss?-15:-15);const legBottom=crouch?8:(isBoss?14:14);ctx.beginPath();ctx.arc(0,headY,isBoss?17:11,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(0,bodyTop);ctx.lineTo(0,bodyBottom);ctx.moveTo(0,shoulderY);ctx.lineTo(-16,armY);ctx.moveTo(0,shoulderY);ctx.lineTo(16,armY);ctx.moveTo(0,bodyBottom);ctx.lineTo(-13,legBottom);ctx.moveTo(0,bodyBottom);ctx.lineTo(13,legBottom);ctx.stroke();ctx.restore()}
+function draw(){
+ ctx.save();if(shake>1)ctx.translate(rand(-shake,shake),rand(-shake,shake));
+ ctx.clearRect(0,0,W,H);let grd=ctx.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#171b25');grd.addColorStop(1,'#0d1016');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+ ctx.strokeStyle='#242a35';ctx.lineWidth=1;for(let x=0;x<W;x+=45){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=40;y<H;y+=45){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+ ctx.fillStyle='#252b35';ctx.fillRect(0,groundY+15,W,H-groundY-15);ctx.fillStyle='#3d4655';ctx.fillRect(0,groundY+12,W,3);
+ souls.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,10+Math.sin(frame*.1+s.x)*2,0,Math.PI*2);ctx.fillStyle=s.type.color;ctx.globalAlpha=.25;ctx.fill();ctx.globalAlpha=1;ctx.fillStyle=s.type.color;ctx.beginPath();ctx.arc(s.x,s.y,5,0,Math.PI*2);ctx.fill()});
+ shockwaves.forEach(s=>{ctx.strokeStyle='#ff4d88';ctx.globalAlpha=Math.max(0,s.life/80);ctx.lineWidth=5;ctx.beginPath();ctx.arc(s.x,groundY+5,s.r,Math.PI,Math.PI*2);ctx.stroke();ctx.globalAlpha=1});
+ enemies.forEach(e=>drawStick(e.x,e.y,e.type,e.x<player.x?1:-1));
+ if(player.inv%6<3)drawStick(player.x,player.y,player.type,player.facing,1,false,player.isCrouching);
+ bullets.forEach(b=>{ctx.fillStyle=b.from==='player'?'#fff':'#ff657e';ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.fill()});
+ particles.forEach(p=>{ctx.globalAlpha=p.life/p.max;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1});
+ // HUD
+ ctx.fillStyle='#0b0e14cc';ctx.fillRect(14,14,315,125);ctx.fillStyle='#fff';ctx.font='bold 16px Arial';ctx.fillText(`BODY  ${player.type.name}`,28,38);ctx.fillStyle='#303744';ctx.fillRect(28,50,180,13);ctx.fillStyle=player.type.color;ctx.fillRect(28,50,180*Math.max(0,player.hp/player.type.maxHp),13);ctx.fillStyle='#fff';ctx.font='12px Arial';ctx.fillText(`HP ${Math.max(0,player.hp)} / ${player.type.maxHp}`,216,61);ctx.fillText(`점수 ${score}`,28,83);ctx.fillText(`생존 ${fmt(time())}`,115,83);ctx.fillText(`난이도 ${difficulty()}`,28,102);ctx.fillText(`능력 ${player.abilityCd<=0?'READY':fmt(player.abilityCd/60)}`,115,102);ctx.fillText(`적 탄환 ${enemyBulletCount()} / ${MAX_ENEMY_BULLETS}`,28,121);ctx.fillText(`상태 ${player.isCrouching?'웅크림':'서있음'}`,215,102);ctx.fillText('적 공격: 간격 완화 · 조준 + 일직선(웅크리기 회피)',185,121);
+ if(bossSpawned&&enemies[0]){let b=enemies[0];ctx.fillStyle='#2b1420';ctx.fillRect(250,135,400,16);ctx.fillStyle=b.type.color;ctx.fillRect(250,135,400*Math.max(0,b.hp/b.type.maxHp),16);ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 13px Arial';ctx.fillText(`BOSS ${bossPhase===2?'PHASE 2':''}`,450,129);ctx.textAlign='left'}
+ ctx.restore();
+}
+function endGame(victory=false){if(gameOver)return;gameOver=true;const t=time();const old=getBest();if(score>bestScore||t>bestTime){bestScore=Math.max(score,bestScore);bestTime=Math.max(t,bestTime);try{localStorage.setItem('stickBest',JSON.stringify({score:bestScore,time:bestTime}))}catch{}}resultText.textContent=victory?`보스 처치! 점수 ${score} · 생존 ${fmt(t)}`:`점수 ${score} · 생존 ${fmt(t)}`;bestText.textContent=`최고 기록: ${bestScore}점 / ${fmt(bestTime)}`;overlay.style.display='flex'}
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code))e.preventDefault();if(e.code==='ArrowLeft')keys.left=true;if(e.code==='ArrowRight')keys.right=true;if(e.code==='ArrowUp')keys.up=true;if(e.code==='ArrowDown')keys.down=true;if(e.code==='Space'){if(!keys.space&&!gameOver)shoot(player,true);keys.space=true}if(e.code==='KeyE'){if(!keys.e)possess();keys.e=true}if(e.code==='ShiftLeft'||e.code==='ShiftRight'){if(!keys.shift)special();keys.shift=true}});
+window.addEventListener('blur',()=>{Object.keys(keys).forEach(k=>keys[k]=false)});
+window.addEventListener('keyup',e=>{if(e.code==='ArrowLeft')keys.left=false;if(e.code==='ArrowRight')keys.right=false;if(e.code==='ArrowUp')keys.up=false;if(e.code==='ArrowDown')keys.down=false;if(e.code==='Space')keys.space=false;if(e.code==='KeyE')keys.e=false;if(e.code==='ShiftLeft'||e.code==='ShiftRight')keys.shift=false});
+restartBtn.onclick=reset;
+function loop(){update();draw();requestAnimationFrame(loop)}
+reset();loop();
+</script>
+</body>
+</html>
