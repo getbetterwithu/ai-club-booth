@@ -67,7 +67,6 @@
             transition: opacity 0.8s ease-out, transform 0.8s ease-out;
         }
 
-        /* 적 체력바 레이아웃 스타일 */
         .enemy-hp-container {
             position: absolute;
             width: 50px;
@@ -97,7 +96,7 @@
             <h1>ULTIMATE MULTI-FPS</h1>
             
             <div id="desc-box">
-                <strong>패치 내용:</strong> 레벨 업 시 적 체력이 50씩 추가되며 적 머리 위에 체력바가 표시됩니다.
+                <strong>패치 내용:</strong> 적의 총격 속도와 데미지가 하향 조정되어 더욱 쾌적하게 플레이할 수 있습니다.
             </div>
 
             <div class="input-group">
@@ -459,7 +458,6 @@
             damageTexts.forEach(dt => { if (dt.element.parentNode) dt.element.parentNode.removeChild(dt.element); });
             damageTexts = [];
 
-            // 적 HP 텍스트 요소들 초기화 정리
             enemies.forEach(e => {
                 if (e.hpElem && e.hpElem.parentNode) e.hpElem.parentNode.removeChild(e.hpElem);
             });
@@ -805,10 +803,8 @@
             group.position.set(x, 0, z);
             scene.add(group);
 
-            // [수정사항] 레벨이 오를 때마다 체력이 50씩 증가하도록 설정
             const baseHp = 150 + ((currentLevel - 1) * 50);
 
-            // 적 머리 위 체력바 HTML 구성 생성
             const hpContainer = document.createElement('div');
             hpContainer.className = 'enemy-hp-container';
             const hpBar = document.createElement('div');
@@ -829,16 +825,13 @@
             });
         }
 
-        // 3D 공간상의 적 체력바 2D 좌표 변환 및 스케일 업데이트
         function updateEnemyHealthBars() {
             enemies.forEach(enemy => {
                 if (!enemy.hpElem) return;
 
-                // 머리 위 약 2.1m 높이에 체력바 위치 계산
                 const enemyHeadPos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 2.1, 0));
                 const screenPos = enemyHeadPos.clone().project(camera);
 
-                // 화면 전방에 위치해 있을 때만 렌더링
                 if (screenPos.z < 1) {
                     const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
                     const y = (-(screenPos.y * 0.5) + 0.5) * window.innerHeight;
@@ -847,7 +840,6 @@
                     enemy.hpElem.style.top = `${y}px`;
                     enemy.hpElem.style.display = 'block';
 
-                    // 체력 비율 계산 및 초록색 너비 감소
                     const hpPercent = Math.max(0, (enemy.hp / enemy.maxHp) * 100);
                     enemy.hpBarElem.style.width = `${hpPercent}%`;
                 } else {
@@ -1129,7 +1121,6 @@
                         showDamageText(finalDamage, intersects[0].point);
 
                         if (enemy.hp <= 0) {
-                            // 사망 시 체력바 DOM 엘리먼트 제거
                             if (enemy.hpElem && enemy.hpElem.parentNode) {
                                 enemy.hpElem.parentNode.removeChild(enemy.hpElem);
                             }
@@ -1315,7 +1306,8 @@
 
             scene.add(bullet);
             
-            const bSpeed = 0.55 + (currentLevel * 0.08);
+            // [수정] 적 탄환 이동 속도 감소 (기존: 0.55 + currentLevel * 0.08)
+            const bSpeed = 0.35 + (currentLevel * 0.03);
 
             enemyBullets.push({
                 mesh: bullet,
@@ -1343,7 +1335,8 @@
                 }
 
                 if (b.mesh.position.distanceTo(camera.position) < 0.8) {
-                    const dmg = 10 + Math.floor(currentLevel * 2);
+                    // [수정] 적 탄환 데미지 하향 조정 (기존: 10 + currentLevel * 2)
+                    const dmg = 4 + Math.floor(currentLevel * 1);
                     player.hp = Math.max(0, player.hp - dmg);
                     AudioFX.playHit();
                     updateHUD();
@@ -1367,7 +1360,6 @@
             isGameOver = true;
             document.exitPointerLock();
 
-            // 게임 오버 시 남아있는 체력바 모두 숨기기
             enemies.forEach(e => {
                 if (e.hpElem) e.hpElem.style.display = 'none';
             });
@@ -1397,12 +1389,13 @@
                 updateEnemyBullets();
                 updateWeatherParticles();
                 updateDamageTexts();
-                updateEnemyHealthBars(); // 체력바 실시간 추적 및 업데이트
+                updateEnemyHealthBars();
 
                 const now = Date.now();
 
                 const enemySpeed = 0.035 + (currentLevel * 0.008);
-                const enemyFireInterval = Math.max(400, 1500 - (currentLevel * 100));
+                // [수정] 적 발사 쿨타임 증가로 쏘는 속도 감소 (기존: 1500 - currentLevel * 100)
+                const enemyFireInterval = Math.max(800, 2500 - (currentLevel * 100));
 
                 enemies.forEach(enemy => {
                     const ePos = enemy.mesh.position;
