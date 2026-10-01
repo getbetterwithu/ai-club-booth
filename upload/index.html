@@ -375,20 +375,20 @@ $('submit').onclick = async () => {
     updateSubmit();
     return;
   }
-  const url = `../student-works/${slug}/`;
+  const url = `../student-works/${slug}/`, viewUrl = `../student-works/view.html?w=${slug}`;
   showMsg($('msg'), `🎉 ${replacing ? '바꿔 올리기' : '업로드'} 성공! 1~2분 뒤 허브에 반영돼요.<br>⏳ 사이트에 반영되는 중…`, 'ok');
   resetForm();
   loadMine();
-  waitForDeploy(url, uploadedText);
+  waitForDeploy(url, uploadedText, viewUrl);
 };
 
 // 페이지 빌드가 끝나서 작품 주소가 열리면 알려주기 (최대 5분)
-async function waitForDeploy(url, text) {
+async function waitForDeploy(url, text, viewUrl) {
   for (let i = 0; i < 30; i++) {
     await new Promise(r => setTimeout(r, 10000));
     try {
       const r = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
-      if (r.ok && (await r.text()) === text) return showMsg($('msg'), `✅ 반영 완료! <a href="${url}">내 작품 보러가기</a> · <a href="../">허브로 가기</a>`, 'ok');
+      if (r.ok && (await r.text()) === text) return showMsg($('msg'), `✅ 반영 완료! <a href="${viewUrl}">내 작품 보러가기</a> · <a href="../">허브로 가기</a>`, 'ok');
     } catch (e) {}
   }
   showMsg($('msg'), `🎉 업로드는 됐어요! 반영이 조금 늦네요. 잠시 뒤 <a href="../">허브</a>를 새로고침 해보세요.`, 'ok');

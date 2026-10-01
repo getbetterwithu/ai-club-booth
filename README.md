@@ -16,6 +16,7 @@ ai-club-booth/
 ├── upload/index.html       # ⬆️ 학생 작품 업로드 (학생 링크 / ?teacher 교사 메뉴)
 └── student-works/
     ├── works.json          # 학생 작품 목록 (허브가 읽어서 카드로 보여줌)
+    ├── view.html           # 작품 보기 화면 (위에 "🏠 허브로" 배너 + 아래에 작품 그대로)
     └── <slug>/index.html   # 업로드된 작품
 ```
 

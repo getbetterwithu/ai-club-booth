@@ -144,7 +144,7 @@ function workCard(w, i) {
   const recent = t => t && Date.now() - Date.parse(t) < 24 * 3600 * 1000;
   const badge = recent(w.createdAt) ? 'NEW' : recent(w.updatedAt) ? 'UP' : '';
   const slug = encodeURIComponent(String(w.slug || ''));
-  return `<a class="card" href="student-works/${slug}/" style="animation-delay:${Math.min(i, 12) * 50}ms">
+  return `<a class="card" href="student-works/view.html?w=${slug}" style="animation-delay:${Math.min(i, 12) * 50}ms">
     ${badge ? `<span class="new">${badge}</span>` : ''}
     <div class="icon">${esc(w.emoji || '🎨')}</div>
     <h2>${esc(w.title)}</h2>
