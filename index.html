@@ -34,7 +34,7 @@
     color: var(--text);
     padding: 28px 16px 60px;
   }
-  h1, h2, .section-title, .play, .upload-btn, .count { font-family: 'Jua', 'Noto Sans KR', sans-serif; font-weight: 400; }
+  h1, h2, .section-title, .play, .count { font-family: 'Jua', 'Noto Sans KR', sans-serif; font-weight: 400; }
   .wrap { max-width: 980px; margin: 0 auto; }
 
   header { text-align: center; color: #fff; margin-bottom: 8px; }
@@ -49,12 +49,6 @@
 
   .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 34px 4px 14px; }
   .section-title { color: #fff; font-size: 1.6rem; text-shadow: 0 2px 0 rgba(0,0,0,.18); }
-  .upload-btn {
-    background: #fff; color: #6a4fd8; text-decoration: none;
-    font-size: 1.1rem; padding: 10px 18px; border-radius: 999px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.18);
-  }
-  .upload-btn:hover { transform: translateY(-2px); }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
   .card {
@@ -114,7 +108,6 @@
 
   <div class="section-head">
     <div class="section-title">🎨 학생 작품존</div>
-    <a class="upload-btn" href="upload/">⬆️ 내 작품 올리기</a>
   </div>
   <div id="studentZone"><div class="placeholder">작품 불러오는 중… ⏳</div></div>
 
@@ -174,7 +167,7 @@ fetch('student-works/works.json?t=' + Date.now())
     document.getElementById('workCount').textContent = `🎨 학생 작품 ${works.length}개`;
     zone.innerHTML = works.length
       ? `<div class="grid">${works.map(workCard).join('')}</div>`
-      : `<div class="placeholder">🎨 아직 올라온 작품이 없어!<br>위의 <b>⬆️ 내 작품 올리기</b>로 첫 번째 주인공이 돼봐~</div>`;
+      : `<div class="placeholder">🎨 AI 제작반 친구들의 작품이 곧 올라와요!<br>조금만 기다려줘~</div>`;
   });
 </script>
 </body>
